@@ -150,7 +150,7 @@ export default function ProductsScreen() {
         <Search color={Colors.textLight} size={20} />
         <TextInput
           className="flex-1 ml-2 text-base text-gray-800"
-          placeholder="Buscar productos..."
+          placeholder="Buscar productos... (V2)"
           value={search}
           onChangeText={(text) => {
             setSearch(text);
@@ -187,10 +187,21 @@ export default function ProductsScreen() {
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
-        <View className="flex-1 justify-end bg-black/50">
+        <View
+          style={{
+            flex: 1,
+            justifyContent: "flex-end",
+            backgroundColor: "rgba(0,0,0,0.5)",
+          }}
+        >
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
-            className="bg-white rounded-t-3xl h-[85%]"
+            style={{
+              backgroundColor: "white",
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              height: "85%",
+            }}
           >
             <View className="p-6 border-b border-gray-100 flex-row justify-between items-center">
               <Text className="text-2xl font-bold text-gray-800">
