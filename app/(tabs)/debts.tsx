@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useToastStore } from "@/store/useToastStore";
 import {
   View,
   Text,
@@ -7,14 +8,17 @@ import {
   Alert,
   StyleSheet,
   TouchableOpacity,
+  Platform,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 import { useStore, DebtStatus, Debt } from "@/store/useStore";
 import { Search, User as UserIcon, CheckCircle } from "lucide-react-native";
 import { Colors } from "@/constants/Colors";
 import useDebounce from "@/hooks/useDebounce";
+import { ScreenHeader } from "@/components/ScreenHeader";
 
 export default function DebtsScreen() {
+  const { showToast } = useToastStore();
   const [search, setSearch] = useState("");
   const searchDebounce = useDebounce(search, 300);
 
@@ -32,7 +36,10 @@ export default function DebtsScreen() {
       { text: "Cancelar", style: "cancel" },
       {
         text: "Sí, Pagado",
-        onPress: () => updateDebtStatus(uuid, DebtStatus.PAID),
+        onPress: () => {
+          updateDebtStatus(uuid, DebtStatus.PAID);
+          showToast("success", "Éxito", "Deuda marcada como pagada");
+        },
       },
     ]);
   };
@@ -88,24 +95,34 @@ export default function DebtsScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View className="flex-row items-center bg-white p-3 rounded-2xl mb-4 shadow-sm border border-gray-100 h-14">
-        <Search color={Colors.primary} size={20} />
-        <TextInput
-          className="flex-1 ml-3 text-base text-gray-800 font-medium"
-          placeholder="Buscar deudor..."
-          placeholderTextColor="#9ca3af"
-          value={search}
-          onChangeText={setSearch}
+    <View className="flex-1 bg-white">
+      <StatusBar style="light" />
+      <ScreenHeader title="Fiados" subtitle="CUENTAS POR COBRAR" />
+      <View
+        style={{
+          flex: 1,
+          paddingTop: 16,
+          paddingHorizontal: 16,
+        }}
+      >
+        <View className="flex-row items-center bg-white mx-3 px-3 py-2 rounded-2xl mb-4 shadow-sm border border-gray-100">
+          <Search color={Colors.primary} size={20} />
+          <TextInput
+            className="flex-1 ml-3 text-base text-gray-800 font-medium"
+            placeholder="Buscar deudor..."
+            placeholderTextColor="#9ca3af"
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
+
+        <FlatList
+          data={debts}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.uuid}
         />
       </View>
-
-      <FlatList
-        data={debts}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.uuid}
-      />
-    </SafeAreaView>
+    </View>
   );
 }
 

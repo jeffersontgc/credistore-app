@@ -7,9 +7,11 @@ import {
   StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { Scan, Plus, CreditCard, DollarSign } from "lucide-react-native";
 import { useStore } from "@/store/useStore";
+import { ScreenHeader } from "@/components/ScreenHeader";
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -40,17 +42,13 @@ export default function DashboardScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false}>
-        <View className="mb-6 px-1">
-          <Text className="text-gray-400 font-medium text-lg">
-            Hola, Vendedor
-          </Text>
-          <Text className="text-3xl font-black text-indigo-950">
-            Resumen del Día
-          </Text>
-        </View>
-
+    <View style={styles.container}>
+      <StatusBar style="light" />
+      <ScreenHeader title="Resumen" subtitle="HOLA, VENDEDOR" />
+      <ScrollView
+        className="flex-1 p-4 pt-6"
+        showsVerticalScrollIndicator={false}
+      >
         <View className="flex-row justify-between mb-4 bg-white p-4 rounded-2xl shadow-sm">
           <View className="items-center flex-1 border-r border-gray-100">
             <Text className="text-gray-400 text-sm">Ventas Hoy</Text>
@@ -98,7 +96,7 @@ export default function DashboardScreen() {
           />
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
+import { useToastStore } from "@/store/useToastStore";
 import {
   View,
   Text,
@@ -6,19 +7,19 @@ import {
   FlatList,
   Alert,
   Modal,
-  ActivityIndicator,
   TextInput,
   ScrollView,
   Platform,
   Dimensions,
   StyleSheet,
-  KeyboardAvoidingView,
 } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import { SafeAreaView } from "react-native-safe-area-context";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { CameraView, useCameraPermissions } from "expo-camera";
+import { useCameraPermissions } from "expo-camera";
 import { useStore, Product, User } from "@/store/useStore";
-import useDebounce from "@/hooks/useDebounce";
+import { ScannerView } from "@/components/ScannerView";
+import { ManualProductSelector } from "@/components/ManualProductSelector";
 import {
   Trash2,
   ShoppingCart,
@@ -45,6 +46,7 @@ interface CartItem {
 }
 
 export default function ScannerScreen() {
+  const { showToast } = useToastStore();
   const { products, processSale, processDebt } = useStore();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
@@ -75,7 +77,7 @@ export default function ScannerScreen() {
     if (product) {
       addToCart(product);
     } else {
-      Alert.alert("No encontrado", "Producto no registrado");
+      showToast("error", "No encontrado", "Producto no registrado");
     }
 
     setSearching(false);
@@ -128,17 +130,17 @@ export default function ScannerScreen() {
 
     try {
       processSale(items);
-      Alert.alert("Éxito", "Venta registrada correctamente");
+      showToast("success", "Éxito", "Venta registrada correctamente");
       setCart([]);
       setIsCheckoutOpen(false);
     } catch (e) {
-      Alert.alert("Error", "No se pudo registrar la venta");
+      showToast("error", "Error", "No se pudo registrar la venta");
     }
   };
 
   const handleDebtSubmit = async () => {
     if (!selectedUser) {
-      Alert.alert("Error", "Debes seleccionar un cliente");
+      showToast("error", "Error", "Debes seleccionar un cliente");
       return;
     }
 
@@ -149,13 +151,17 @@ export default function ScannerScreen() {
 
     try {
       processDebt(selectedUser.uuid, dueDate.toISOString(), items);
-      Alert.alert("Éxito", `Fiado registrado para ${selectedUser.firstname}`);
+      showToast(
+        "success",
+        "Éxito",
+        `Fiado registrado para ${selectedUser.firstname}`
+      );
       setCart([]);
       setIsDebtModalOpen(false);
       setIsCheckoutOpen(false);
       setSelectedUser(null);
     } catch (e) {
-      Alert.alert("Error", "No se pudo registrar el fiado");
+      showToast("error", "Error", "No se pudo registrar el fiado");
     }
   };
 
@@ -187,13 +193,14 @@ export default function ScannerScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <StatusBar style="light" />
       <LinearGradient
         colors={["#4338ca", "#1e1b4b"]}
-        className="pb-10 px-6 rounded-b-[40px] shadow-2xl relative z-20"
+        className="pb-10 px-6 rounded-b-[40px] shadow-2xl relative"
       >
         <SafeAreaView edges={["top"]}>
-          <View className="flex-row justify-between items-center mb-6 mt-4">
+          <View className="flex-row justify-between items-center mb-6">
             <View>
               <Text className="text-indigo-200 font-bold uppercase tracking-widest text-xs mb-1">
                 Terminal de Venta
@@ -215,36 +222,52 @@ export default function ScannerScreen() {
           <View className="flex-row bg-black/30 rounded-2xl p-1">
             <TouchableOpacity
               onPress={() => setActiveTab("scanner")}
-              className={`flex-1 flex-row items-center justify-center py-3 rounded-xl ${
-                activeTab === "scanner" ? "bg-white shadow-sm" : ""
-              }`}
+              className="flex-1 flex-row items-center justify-center py-3 rounded-xl"
+              style={{
+                backgroundColor:
+                  activeTab === "scanner" ? "white" : "transparent",
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: activeTab === "scanner" ? 0.1 : 0,
+                shadowRadius: 2,
+                elevation: activeTab === "scanner" ? 2 : 0,
+              }}
             >
               <Scan
                 size={18}
                 color={activeTab === "scanner" ? Colors.primary : "white"}
               />
               <Text
-                className={`font-black ml-2 ${
-                  activeTab === "scanner" ? "text-indigo-900" : "text-white"
-                }`}
+                className="font-black ml-2"
+                style={{
+                  color: activeTab === "scanner" ? "#312e81" : "white",
+                }}
               >
                 Escáner
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setActiveTab("manual")}
-              className={`flex-1 flex-row items-center justify-center py-3 rounded-xl ${
-                activeTab === "manual" ? "bg-white shadow-sm" : ""
-              }`}
+              className="flex-1 flex-row items-center justify-center py-3 rounded-xl"
+              style={{
+                backgroundColor:
+                  activeTab === "manual" ? "white" : "transparent",
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: activeTab === "manual" ? 0.1 : 0,
+                shadowRadius: 2,
+                elevation: activeTab === "manual" ? 2 : 0,
+              }}
             >
               <Keyboard
                 size={18}
                 color={activeTab === "manual" ? Colors.primary : "white"}
               />
               <Text
-                className={`font-black ml-2 ${
-                  activeTab === "manual" ? "text-indigo-900" : "text-white"
-                }`}
+                className="font-black ml-2"
+                style={{
+                  color: activeTab === "manual" ? "#312e81" : "white",
+                }}
               >
                 Manual
               </Text>
@@ -254,35 +277,14 @@ export default function ScannerScreen() {
       </LinearGradient>
 
       {/* Main Content Area */}
-      <View className="flex-1 -mt-6">
+      <View className="flex-1 mt-5 z-10">
         {activeTab === "scanner" ? (
-          <View className="mx-6 h-64 bg-black rounded-3xl overflow-hidden shadow-2xl border-4 border-white relative z-10">
-            <CameraView
-              style={StyleSheet.absoluteFillObject}
-              facing="back"
-              onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-              barcodeScannerSettings={{
-                barcodeTypes: ["ean13", "ean8", "qr", "upc_a", "code128"],
-              }}
-            />
-            <View className="absolute inset-0 items-center justify-center">
-              <View className="w-52 h-40 border-2 border-indigo-400/30 rounded-3xl overflow-hidden">
-                <View className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-emerald-400 rounded-tl-xl" />
-                <View className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-emerald-400 rounded-tr-xl" />
-                <View className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-emerald-400 rounded-bl-xl" />
-                <View className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-emerald-400 rounded-br-xl" />
-                <View className="absolute top-1/2 left-0 right-0 h-0.5 bg-emerald-400/50" />
-              </View>
-            </View>
-            {scanned && (
-              <View className="absolute inset-0 bg-indigo-900/60 items-center justify-center">
-                <ActivityIndicator color="white" size="large" />
-                <Text className="text-white font-black mt-4">¡PROCESANDO!</Text>
-              </View>
-            )}
-          </View>
+          <ScannerView scanned={scanned} onScanned={handleBarCodeScanned} />
         ) : (
-          <ManualProductSelectorV2 addToCart={addToCart} />
+          <ManualProductSelector
+            products={products}
+            addToCart={(p, q) => addToCart(p, q)}
+          />
         )}
 
         <View className="flex-1 mt-6 bg-white rounded-t-[45px] shadow-2xl overflow-hidden border-t border-gray-100">
@@ -545,7 +547,7 @@ export default function ScannerScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -555,172 +557,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     flexDirection: "column",
   },
-  absoluteFillObject: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-  } as const,
 });
-
-function ManualProductSelectorV2({
-  addToCart,
-}: {
-  addToCart: (p: Product, q: number) => void;
-}) {
-  const [search, setSearch] = useState("");
-  const debouncedSearch = useDebounce(search, 300);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [quantity, setQuantity] = useState(1);
-  const [isListVisible, setIsListVisible] = useState(false);
-  const { products: allProducts } = useStore();
-
-  const products = allProducts
-    .filter(
-      (p) =>
-        p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        p.barcodes?.some((b) =>
-          b.barcode.toLowerCase().includes(debouncedSearch.toLowerCase())
-        )
-    )
-    .slice(0, 10);
-
-  return (
-    <View className="px-6 relative z-50">
-      <View className="flex-row items-center bg-white rounded-3xl px-6 py-1 border border-indigo-100 shadow-xl shadow-indigo-50">
-        <Search color={Colors.primary} size={20} />
-        <TextInput
-          className="flex-1 h-14 ml-4 text-indigo-950 font-black text-lg"
-          placeholder="¿Qué producto buscas?"
-          placeholderTextColor="#94a3b8"
-          value={search}
-          onChangeText={(text) => {
-            setSearch(text);
-            setIsListVisible(true);
-          }}
-          onFocus={() => setIsListVisible(true)}
-        />
-        {search.length > 0 && (
-          <TouchableOpacity
-            onPress={() => {
-              setSearch("");
-              setIsListVisible(false);
-            }}
-          >
-            <View className="bg-gray-100 p-2 rounded-full">
-              <X color="#64748b" size={14} />
-            </View>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {isListVisible && search.length > 0 && (
-        <View className="absolute top-[70px] left-6 right-6 bg-white rounded-[32px] shadow-2xl border border-gray-100 max-h-72 overflow-hidden z-50">
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            {products.length > 0 ? (
-              products.map((p) => (
-                <TouchableOpacity
-                  key={p.uuid}
-                  onPress={() => {
-                    setSelectedProduct(p);
-                    setIsListVisible(false);
-                    setSearch(p.name);
-                    setQuantity(1);
-                  }}
-                  className="p-5 border-b border-gray-50 flex-row justify-between items-center active:bg-indigo-50"
-                >
-                  <View className="flex-1 mr-4">
-                    <Text
-                      className="text-indigo-950 font-black text-base"
-                      numberOfLines={1}
-                    >
-                      {p.name}
-                    </Text>
-                    <Text className="text-gray-400 font-bold text-xs uppercase mt-0.5">
-                      S: {p.stock} | C$ {p.price}
-                    </Text>
-                  </View>
-                  <ChevronRight size={18} color={Colors.primary} />
-                </TouchableOpacity>
-              ))
-            ) : (
-              <View className="p-8 items-center">
-                <Text className="text-gray-400 font-bold italic">
-                  No encontrado
-                </Text>
-              </View>
-            )}
-          </ScrollView>
-        </View>
-      )}
-
-      {selectedProduct && !isListVisible && (
-        <LinearGradient
-          colors={["#f8fafc", "#f1f5f9"]}
-          className="mt-4 p-6 rounded-[35px] border border-indigo-100 shadow-sm border-b-4 border-b-indigo-200"
-        >
-          <View className="flex-row justify-between items-start mb-6">
-            <View className="flex-1 mr-4">
-              <Text className="text-indigo-950 font-black text-xl leading-tight">
-                {selectedProduct.name}
-              </Text>
-              <Text className="text-indigo-600 font-black text-xl mt-1">
-                C$ {selectedProduct.price}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => setSelectedProduct(null)}
-              className="bg-white p-2 rounded-full shadow-sm"
-            >
-              <X color={Colors.primary} size={18} strokeWidth={3} />
-            </TouchableOpacity>
-          </View>
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center bg-white rounded-2xl p-1.5 border border-indigo-100 shadow-sm">
-              <TouchableOpacity
-                onPress={() => setQuantity(Math.max(1, quantity - 1))}
-                className="p-2.5 bg-indigo-50 rounded-xl"
-              >
-                <Minus size={18} color={Colors.primary} strokeWidth={3} />
-              </TouchableOpacity>
-              <Text className="font-black mx-6 text-2xl text-indigo-950">
-                {quantity}
-              </Text>
-              <TouchableOpacity
-                onPress={() => setQuantity(quantity + 1)}
-                className="p-2.5 bg-indigo-50 rounded-xl"
-              >
-                <Plus size={18} color={Colors.primary} strokeWidth={3} />
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity
-              onPress={() => {
-                addToCart(selectedProduct, quantity);
-                setSelectedProduct(null);
-                setSearch("");
-              }}
-              className="bg-indigo-600 p-5 rounded-3xl shadow-lg shadow-indigo-200 px-8 active:bg-indigo-700"
-            >
-              <Text className="text-white font-black text-lg uppercase">
-                Añadir
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </LinearGradient>
-      )}
-    </View>
-  );
-}
 
 function UserSelectorV2({
   onSelect,
   selectedUser,
 }: {
-  onSelect: (u: User) => void;
+  onSelect: (u: User | null) => void;
   selectedUser: User | null;
 }) {
   const [search, setSearch] = useState("");
@@ -732,8 +575,8 @@ function UserSelectorV2({
   );
 
   return (
-    <View className="relative z-50">
-      <View className="flex-row items-center bg-gray-50 rounded-[28px] px-6 py-1 border border-gray-100 h-16 shadow-inner">
+    <View className="relative" style={{ zIndex: 50 }}>
+      <View className="flex-row items-center bg-gray-50 rounded-[28px] px-6 py-1 border border-gray-100 h-16">
         <UserIcon color="#94a3b8" size={22} strokeWidth={2.5} />
         <TextInput
           className="flex-1 ml-4 text-indigo-950 font-black text-lg"
@@ -810,7 +653,7 @@ function UserSelectorV2({
             </Text>
           </View>
           <TouchableOpacity
-            onPress={() => onSelect(null as any)}
+            onPress={() => onSelect(null)}
             className="bg-white/50 p-2 rounded-full"
           >
             <X size={16} color={Colors.primary} strokeWidth={3} />

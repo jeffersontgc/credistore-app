@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -9,9 +9,10 @@ import {
   StyleSheet,
   Platform,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useStore, DebtStatus } from "@/store/useStore";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import {
   CreditCard,
   ShoppingBag,
@@ -24,7 +25,7 @@ import {
   ChevronRight,
 } from "lucide-react-native";
 import { Colors } from "@/constants/Colors";
-import { useMemo } from "react";
+import { LinearGradient } from "expo-linear-gradient";
 
 type TabType = "daily" | "monthly";
 
@@ -118,31 +119,25 @@ export default function ReportsScreen() {
       pending_debts_count: pendingDebts.length,
       paid_debts_count: paidDebts.length,
       settled_debts_count: settledDebts.length,
-      average_daily_sales: activeTab === "monthly" ? totalSales / 30 : 0, // Simplified
+      average_daily_sales: activeTab === "monthly" ? totalSales / 30 : 0,
     };
-  }, [sales, debts, selectedDate, activeTab]);
+  }, [sales, debts, selectedDate, activeTab, products]);
 
   const loading = false;
 
-  const onRefresh = () => {
-    // No-op for local store
-  };
+  const onRefresh = () => {};
 
   const changeDate = (amount: number) => {
     const newDate = new Date(selectedDate);
-    if (activeTab === "daily") {
-      newDate.setDate(newDate.getDate() + amount);
-    } else {
-      newDate.setMonth(newDate.getMonth() + amount);
-    }
+    activeTab === "daily"
+      ? newDate.setDate(newDate.getDate() + amount)
+      : newDate.setMonth(newDate.getMonth() + amount);
     setSelectedDate(newDate);
   };
 
-  const handleDateChange = (event: any, date?: Date) => {
+  const handleDateChange = (_: any, date?: Date) => {
     setShowPicker(Platform.OS === "ios");
-    if (date) {
-      setSelectedDate(date);
-    }
+    if (date) setSelectedDate(date);
   };
 
   const StatCard = ({
@@ -192,9 +187,11 @@ export default function ReportsScreen() {
   );
 
   return (
-    <View className="flex-1 bg-gray-50">
-      <View className="bg-white shadow-sm">
-        <SafeAreaView style={styles.container}>
+    <View className="flex-1 bg-white">
+      <StatusBar style="light" />
+      <ScreenHeader title="Reportes" subtitle="MÉTRICAS & FINANZAS" />
+      <View className="flex-1 bg-gray-50">
+        <View className="bg-white shadow-sm">
           <View className="flex-row justify-between items-end mb-4 px-1">
             <View>
               <View className="flex-row items-center">
@@ -245,224 +242,228 @@ export default function ReportsScreen() {
             <TabButton type="daily" label="Diario" />
             <TabButton type="monthly" label="Mensual" />
           </View>
-        </SafeAreaView>
+        </View>
+
+        <ScrollView
+          className="flex-1 px-4 pt-4"
+          refreshControl={
+            <RefreshControl refreshing={loading} onRefresh={onRefresh} />
+          }
+        >
+          {loading ? (
+            <View className="mt-10 items-center">
+              <ActivityIndicator size="large" color={Colors.primary} />
+              <Text className="text-gray-400 mt-2">Cargando métricas...</Text>
+            </View>
+          ) : !report ? (
+            <View className="mt-10 items-center bg-white p-10 rounded-3xl border border-dashed border-gray-300">
+              <BarChart2 size={48} color="#D1D5DB" />
+              <Text className="text-gray-500 mt-4 text-center">
+                No hay datos registrados para este{" "}
+                {activeTab === "daily" ? "día" : "mes"}.
+              </Text>
+            </View>
+          ) : (
+            <View className="pb-10">
+              {/* Main Sales Metric */}
+              <View className="bg-indigo-600 p-6 rounded-3xl mb-4 shadow-lg shadow-indigo-200">
+                <View className="flex-row justify-between items-start">
+                  <View>
+                    <Text className="text-indigo-100 text-sm font-medium">
+                      Ventas Totales
+                    </Text>
+                    <Text className="text-white text-4xl font-bold mt-1">
+                      C$ {report.total_sales.toLocaleString()}
+                    </Text>
+                  </View>
+                  <View className="bg-white/20 p-3 rounded-2xl">
+                    <TrendingUp size={24} color="white" />
+                  </View>
+                </View>
+                <View className="flex-row mt-4 pt-4 border-t border-white/10">
+                  <View className="flex-1">
+                    <Text className="text-indigo-200 text-xs">
+                      Transacciones
+                    </Text>
+                    <Text className="text-white font-bold">
+                      {report.total_transactions}
+                    </Text>
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-indigo-200 text-xs">Promedio</Text>
+                    <Text className="text-white font-bold">
+                      C$ {report.average_sale_amount.toFixed(2)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Split Breakdown */}
+              <View className="flex-row gap-3 mb-4">
+                <View className="flex-1">
+                  <StatCard
+                    title="Contado"
+                    value={`C$ ${report.total_cash_sales.toLocaleString()}`}
+                    icon={ShoppingBag}
+                    color="#15803d"
+                    bg="bg-green-100"
+                  />
+                </View>
+                <View className="flex-1">
+                  <StatCard
+                    title="Crédito"
+                    value={`C$ ${report.total_credit_sales.toLocaleString()}`}
+                    icon={CreditCard}
+                    color="#c2410c"
+                    bg="bg-orange-100"
+                  />
+                </View>
+              </View>
+
+              {/* Product Metric */}
+              <StatCard
+                title="Productos Vendidos"
+                value={`${report.total_products_sold} unidades`}
+                icon={Package}
+                color="#4F46E5"
+                bg="bg-indigo-100"
+              />
+
+              {/* Debts Section */}
+              <Text className="text-lg font-bold text-gray-800 mt-4 mb-3 px-1">
+                Estado de Créditos
+              </Text>
+              <View className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
+                <View className="flex-row items-center justify-between mb-4 pb-4 border-b border-gray-50">
+                  <View className="flex-row items-center">
+                    <View className="bg-gray-100 p-2 rounded-lg mr-3">
+                      <Layers size={20} color="#6B7280" />
+                    </View>
+                    <View>
+                      <Text className="text-gray-800 font-bold">
+                        Total Fiado
+                      </Text>
+                      <Text className="text-gray-400 text-xs">
+                        Monto acumulado
+                      </Text>
+                    </View>
+                  </View>
+                  <Text className="text-xl font-bold text-gray-800">
+                    C$ {report.total_active_amount.toLocaleString()}
+                  </Text>
+                </View>
+
+                <View className="flex-row gap-4">
+                  <View className="flex-1 items-center">
+                    <View className="w-2 h-2 rounded-full bg-blue-500 mb-1" />
+                    <Text className="text-gray-400 text-[10px] uppercase font-bold">
+                      Activos
+                    </Text>
+                    <Text className="text-gray-800 font-bold">
+                      {report.active_debts_count}
+                    </Text>
+                  </View>
+                  <View className="flex-1 items-center border-x border-gray-50">
+                    <View className="w-2 h-2 rounded-full bg-amber-500 mb-1" />
+                    <Text className="text-gray-400 text-[10px] uppercase font-bold">
+                      Pendientes
+                    </Text>
+                    <Text className="text-gray-800 font-bold">
+                      {report.pending_debts_count}
+                    </Text>
+                  </View>
+                  <View className="flex-1 items-center">
+                    <View className="w-2 h-2 rounded-full bg-green-500 mb-1" />
+                    <Text className="text-gray-400 text-[10px] uppercase font-bold">
+                      Pagados
+                    </Text>
+                    <Text className="text-gray-800 font-bold">
+                      {report.paid_debts_count + report.settled_debts_count}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {activeTab === "monthly" && (
+                <View className="mt-4 bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
+                  <Text className="text-indigo-800 font-bold text-sm">
+                    Promedio Mensual
+                  </Text>
+                  <Text className="text-indigo-600 text-xs mt-1">
+                    En promedio se vende C${" "}
+                    {(report as any).average_daily_sales?.toFixed(2)} por día.
+                  </Text>
+                </View>
+              )}
+
+              {/* Inventory Valuation Section */}
+              <Text className="text-lg font-bold text-gray-800 mt-8 mb-3 px-1">
+                Valor del Inventario
+              </Text>
+              <View className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 mb-10">
+                <View className="flex-row items-center justify-between mb-4 pb-4 border-b border-gray-50">
+                  <View className="flex-row items-center">
+                    <View className="bg-blue-50 p-2 rounded-lg mr-3">
+                      <Package size={20} color={Colors.primary} />
+                    </View>
+                    <View>
+                      <Text className="text-gray-800 font-bold">
+                        Inversión Total
+                      </Text>
+                      <Text className="text-gray-400 text-xs">
+                        A precio de costo
+                      </Text>
+                    </View>
+                  </View>
+                  <Text className="text-xl font-bold text-gray-800">
+                    C${" "}
+                    {products
+                      .reduce((acc, p) => acc + p.cost_price * p.stock, 0)
+                      .toLocaleString()}
+                  </Text>
+                </View>
+
+                <View className="flex-row items-center justify-between mb-4 pb-4 border-b border-gray-50">
+                  <View className="flex-row items-center">
+                    <View className="bg-green-50 p-2 rounded-lg mr-3">
+                      <TrendingUp size={20} color="#15803d" />
+                    </View>
+                    <View>
+                      <Text className="text-gray-800 font-bold">
+                        Venta Potencial
+                      </Text>
+                      <Text className="text-gray-400 text-xs">
+                        Si se vende todo
+                      </Text>
+                    </View>
+                  </View>
+                  <Text className="text-xl font-bold text-green-700">
+                    C${" "}
+                    {products
+                      .reduce((acc, p) => acc + p.price * p.stock, 0)
+                      .toLocaleString()}
+                  </Text>
+                </View>
+
+                <View className="flex-row bg-indigo-50 p-3 rounded-2xl items-center justify-between">
+                  <Text className="text-indigo-800 font-bold">
+                    Ganancia Proyectada
+                  </Text>
+                  <Text className="text-indigo-950 font-black text-lg">
+                    C${" "}
+                    {products
+                      .reduce(
+                        (acc, p) => acc + (p.price - p.cost_price) * p.stock,
+                        0
+                      )
+                      .toLocaleString()}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+        </ScrollView>
       </View>
-
-      <ScrollView
-        className="flex-1 px-4 pt-4"
-        refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={onRefresh} />
-        }
-      >
-        {loading ? (
-          <View className="mt-10 items-center">
-            <ActivityIndicator size="large" color={Colors.primary} />
-            <Text className="text-gray-400 mt-2">Cargando métricas...</Text>
-          </View>
-        ) : !report ? (
-          <View className="mt-10 items-center bg-white p-10 rounded-3xl border border-dashed border-gray-300">
-            <BarChart2 size={48} color="#D1D5DB" />
-            <Text className="text-gray-500 mt-4 text-center">
-              No hay datos registrados para este{" "}
-              {activeTab === "daily" ? "día" : "mes"}.
-            </Text>
-          </View>
-        ) : (
-          <View className="pb-10">
-            {/* Main Sales Metric */}
-            <View className="bg-indigo-600 p-6 rounded-3xl mb-4 shadow-lg shadow-indigo-200">
-              <View className="flex-row justify-between items-start">
-                <View>
-                  <Text className="text-indigo-100 text-sm font-medium">
-                    Ventas Totales
-                  </Text>
-                  <Text className="text-white text-4xl font-bold mt-1">
-                    C$ {report.total_sales.toLocaleString()}
-                  </Text>
-                </View>
-                <View className="bg-white/20 p-3 rounded-2xl">
-                  <TrendingUp size={24} color="white" />
-                </View>
-              </View>
-              <View className="flex-row mt-4 pt-4 border-t border-white/10">
-                <View className="flex-1">
-                  <Text className="text-indigo-200 text-xs">Transacciones</Text>
-                  <Text className="text-white font-bold">
-                    {report.total_transactions}
-                  </Text>
-                </View>
-                <View className="flex-1">
-                  <Text className="text-indigo-200 text-xs">Promedio</Text>
-                  <Text className="text-white font-bold">
-                    C$ {report.average_sale_amount.toFixed(2)}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Split Breakdown */}
-            <View className="flex-row gap-3 mb-4">
-              <View className="flex-1">
-                <StatCard
-                  title="Contado"
-                  value={`C$ ${report.total_cash_sales.toLocaleString()}`}
-                  icon={ShoppingBag}
-                  color="#15803d"
-                  bg="bg-green-100"
-                />
-              </View>
-              <View className="flex-1">
-                <StatCard
-                  title="Crédito"
-                  value={`C$ ${report.total_credit_sales.toLocaleString()}`}
-                  icon={CreditCard}
-                  color="#c2410c"
-                  bg="bg-orange-100"
-                />
-              </View>
-            </View>
-
-            {/* Product Metric */}
-            <StatCard
-              title="Productos Vendidos"
-              value={`${report.total_products_sold} unidades`}
-              icon={Package}
-              color="#4F46E5"
-              bg="bg-indigo-100"
-            />
-
-            {/* Debts Section */}
-            <Text className="text-lg font-bold text-gray-800 mt-4 mb-3 px-1">
-              Estado de Créditos
-            </Text>
-            <View className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
-              <View className="flex-row items-center justify-between mb-4 pb-4 border-b border-gray-50">
-                <View className="flex-row items-center">
-                  <View className="bg-gray-100 p-2 rounded-lg mr-3">
-                    <Layers size={20} color="#6B7280" />
-                  </View>
-                  <View>
-                    <Text className="text-gray-800 font-bold">Total Fiado</Text>
-                    <Text className="text-gray-400 text-xs">
-                      Monto acumulado
-                    </Text>
-                  </View>
-                </View>
-                <Text className="text-xl font-bold text-gray-800">
-                  C$ {report.total_active_amount.toLocaleString()}
-                </Text>
-              </View>
-
-              <View className="flex-row gap-4">
-                <View className="flex-1 items-center">
-                  <View className="w-2 h-2 rounded-full bg-blue-500 mb-1" />
-                  <Text className="text-gray-400 text-[10px] uppercase font-bold">
-                    Activos
-                  </Text>
-                  <Text className="text-gray-800 font-bold">
-                    {report.active_debts_count}
-                  </Text>
-                </View>
-                <View className="flex-1 items-center border-x border-gray-50">
-                  <View className="w-2 h-2 rounded-full bg-amber-500 mb-1" />
-                  <Text className="text-gray-400 text-[10px] uppercase font-bold">
-                    Pendientes
-                  </Text>
-                  <Text className="text-gray-800 font-bold">
-                    {report.pending_debts_count}
-                  </Text>
-                </View>
-                <View className="flex-1 items-center">
-                  <View className="w-2 h-2 rounded-full bg-green-500 mb-1" />
-                  <Text className="text-gray-400 text-[10px] uppercase font-bold">
-                    Pagados
-                  </Text>
-                  <Text className="text-gray-800 font-bold">
-                    {report.paid_debts_count + report.settled_debts_count}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {activeTab === "monthly" && (
-              <View className="mt-4 bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
-                <Text className="text-indigo-800 font-bold text-sm">
-                  Promedio Mensual
-                </Text>
-                <Text className="text-indigo-600 text-xs mt-1">
-                  En promedio se vende C${" "}
-                  {(report as any).average_daily_sales?.toFixed(2)} por día.
-                </Text>
-              </View>
-            )}
-
-            {/* Inventory Valuation Section */}
-            <Text className="text-lg font-bold text-gray-800 mt-8 mb-3 px-1">
-              Valor del Inventario
-            </Text>
-            <View className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 mb-10">
-              <View className="flex-row items-center justify-between mb-4 pb-4 border-b border-gray-50">
-                <View className="flex-row items-center">
-                  <View className="bg-blue-50 p-2 rounded-lg mr-3">
-                    <Package size={20} color={Colors.primary} />
-                  </View>
-                  <View>
-                    <Text className="text-gray-800 font-bold">
-                      Inversión Total
-                    </Text>
-                    <Text className="text-gray-400 text-xs">
-                      A precio de costo
-                    </Text>
-                  </View>
-                </View>
-                <Text className="text-xl font-bold text-gray-800">
-                  C${" "}
-                  {products
-                    .reduce((acc, p) => acc + p.cost_price * p.stock, 0)
-                    .toLocaleString()}
-                </Text>
-              </View>
-
-              <View className="flex-row items-center justify-between mb-4 pb-4 border-b border-gray-50">
-                <View className="flex-row items-center">
-                  <View className="bg-green-50 p-2 rounded-lg mr-3">
-                    <TrendingUp size={20} color="#15803d" />
-                  </View>
-                  <View>
-                    <Text className="text-gray-800 font-bold">
-                      Venta Potencial
-                    </Text>
-                    <Text className="text-gray-400 text-xs">
-                      Si se vende todo
-                    </Text>
-                  </View>
-                </View>
-                <Text className="text-xl font-bold text-green-700">
-                  C${" "}
-                  {products
-                    .reduce((acc, p) => acc + p.price * p.stock, 0)
-                    .toLocaleString()}
-                </Text>
-              </View>
-
-              <View className="flex-row bg-indigo-50 p-3 rounded-2xl items-center justify-between">
-                <Text className="text-indigo-800 font-bold">
-                  Ganancia Proyectada
-                </Text>
-                <Text className="text-indigo-950 font-black text-lg">
-                  C${" "}
-                  {products
-                    .reduce(
-                      (acc, p) => acc + (p.price - p.cost_price) * p.stock,
-                      0
-                    )
-                    .toLocaleString()}
-                </Text>
-              </View>
-            </View>
-          </View>
-        )}
-      </ScrollView>
     </View>
   );
 }

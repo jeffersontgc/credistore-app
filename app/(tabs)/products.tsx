@@ -1,20 +1,28 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   FlatList,
   TextInput,
   TouchableOpacity,
-  ActivityIndicator,
   Modal,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
   Alert,
+  ActivityIndicator,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { CameraView, useCameraPermissions } from "expo-camera";
+import { StatusBar } from "expo-status-bar";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import {
+  CameraView,
+  useCameraPermissions,
+  BarcodeScanningResult,
+} from "expo-camera";
 import { useStore, ProductType, Product } from "@/store/useStore";
 import {
   Search,
@@ -23,10 +31,16 @@ import {
   X,
   Check,
   Camera,
+  Pencil,
+  Package,
 } from "lucide-react-native";
 import { Colors } from "@/constants/Colors";
 import useDebounce from "@/hooks/useDebounce";
 import { useForm, Controller } from "react-hook-form";
+import { ScreenHeader } from "@/components/ScreenHeader";
+import { LinearGradient } from "expo-linear-gradient";
+
+import { useToastStore } from "@/store/useToastStore";
 
 interface CreateProductForm {
   name: string;
@@ -39,13 +53,17 @@ interface CreateProductForm {
 }
 
 export default function ProductsScreen() {
+  const { showToast } = useToastStore();
+  const insets = useSafeAreaInsets(); // ✅ SAFE AREA FIX ANDROID
+
   const [search, setSearch] = useState("");
   const [modalVisible, setModalVisible] = useState(false);
   const [scannerVisible, setScannerVisible] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
-  const searchDebounce = useDebounce(search, 300);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
-  const { products: allProducts, addProduct } = useStore();
+  const searchDebounce = useDebounce(search, 300);
+  const { products: allProducts, addProduct, updateProduct } = useStore();
 
   const products = allProducts
     .filter(
@@ -56,7 +74,6 @@ export default function ProductsScreen() {
     )
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
-  // Form setup
   const {
     control,
     handleSubmit,
@@ -75,26 +92,74 @@ export default function ProductsScreen() {
     },
   });
 
-  const onSubmit = (formData: CreateProductForm) => {
-    try {
-      addProduct({
-        name: formData.name,
-        barcode: formData.barcode,
-        price: Number(formData.price),
-        cost_price: Number(formData.cost_price),
-        stock: Number(formData.stock),
-        min_stock: Number(formData.min_stock),
-        type: formData.type,
-      });
-      Alert.alert("Éxito", "Producto creado correctamente");
-      setModalVisible(false);
+  // Populate form when editing
+  useEffect(() => {
+    if (editingProduct) {
+      setValue("name", editingProduct.name);
+      setValue("barcode", editingProduct.barcodes?.[0]?.barcode || "");
+      setValue("price", String(editingProduct.price));
+      setValue("cost_price", String(editingProduct.cost_price));
+      setValue("stock", String(editingProduct.stock));
+      setValue("min_stock", String(editingProduct.min_stock));
+      setValue("type", editingProduct.type);
+    } else {
       reset();
-    } catch (error) {
-      Alert.alert("Error", "No se pudo crear el producto");
+    }
+  }, [editingProduct, setValue, reset]);
+
+  const handleEdit = (product: Product) => {
+    setEditingProduct(product);
+    setModalVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    setModalVisible(false);
+    setEditingProduct(null);
+    reset();
+  };
+
+  const onSubmit = (data: CreateProductForm) => {
+    try {
+      if (editingProduct) {
+        // Edit Mode
+        if (updateProduct) {
+          updateProduct(editingProduct.uuid, {
+            name: data.name,
+            barcodes: data.barcode ? [{ barcode: data.barcode }] : [],
+            price: Number(data.price),
+            cost_price: Number(data.cost_price),
+            stock: Number(data.stock),
+            min_stock: Number(data.min_stock),
+            type: data.type,
+          });
+          showToast("success", "Éxito", "Producto actualizado correctamente");
+        } else {
+          showToast(
+            "info",
+            "Información",
+            "Función de editar pendiente de conectar al Store"
+          );
+        }
+      } else {
+        // Create Mode
+        addProduct({
+          name: data.name,
+          barcode: data.barcode,
+          price: Number(data.price),
+          cost_price: Number(data.cost_price),
+          stock: Number(data.stock),
+          min_stock: Number(data.min_stock),
+          type: data.type,
+        });
+        showToast("success", "Éxito", "Producto creado correctamente");
+      }
+      handleCloseModal();
+    } catch {
+      showToast("error", "Error", "No se pudo guardar el producto");
     }
   };
 
-  const handleBarCodeScanned = ({ data }: { data: string }) => {
+  const handleBarCodeScanned = ({ data }: BarcodeScanningResult) => {
     setValue("barcode", data);
     setScannerVisible(false);
   };
@@ -103,9 +168,10 @@ export default function ProductsScreen() {
     if (!permission?.granted) {
       const { granted } = await requestPermission();
       if (!granted) {
-        Alert.alert(
-          "Permiso denegado",
-          "Necesitamos permiso para usar la cámara"
+        showToast(
+          "error",
+          "Permiso requerido",
+          "Se necesita acceso a la cámara"
         );
         return;
       }
@@ -114,304 +180,323 @@ export default function ProductsScreen() {
   };
 
   const renderItem = ({ item }: { item: Product }) => (
-    <View className="bg-white p-4 mb-3 rounded-xl shadow-sm flex-row justify-between items-center">
-      <View>
-        <Text className="text-lg font-bold text-gray-800">{item.name}</Text>
-        <Text className="text-gray-500">
-          {item.barcodes && item.barcodes.length > 0
-            ? item.barcodes[0].barcode
-            : "Sin código"}
-        </Text>
-        {item.stock <= item.min_stock && (
-          <View className="flex-row items-center mt-1">
-            <AlertCircle size={14} color={Colors.warning} />
-            <Text className="text-amber-500 text-xs ml-1 font-bold">
-              Stock Bajo
-            </Text>
+    <TouchableOpacity
+      onPress={() => handleEdit(item)}
+      activeOpacity={0.7}
+      className="bg-white p-5 mb-4 rounded-[20px] shadow-sm border border-gray-100 mx-1"
+      style={{
+        shadowColor: "#6366f1",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 12,
+        elevation: 3,
+      }}
+    >
+      <View className="flex-row justify-between items-start">
+        <View className="flex-1 mr-4">
+          <View className="flex-row items-center mb-2">
+            <View className="bg-indigo-50 p-2 rounded-xl mr-3">
+              <Package size={20} color={Colors.primary} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-lg font-black text-indigo-950 leading-tight">
+                {item.name}
+              </Text>
+              <Text className="text-xs font-bold text-gray-400 uppercase tracking-wider mt-0.5">
+                {item.barcodes?.[0]?.barcode || "SIN CÓDIGO"}
+              </Text>
+            </View>
           </View>
-        )}
+
+          <View className="flex-row items-center flex-wrap gap-2 mt-2">
+            <View className="bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+              <Text className="text-gray-600 text-xs font-bold">
+                Stock: <Text className="text-indigo-600">{item.stock}</Text>
+              </Text>
+            </View>
+
+            {item.stock <= item.min_stock && (
+              <View className="bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-100 flex-row items-center">
+                <AlertCircle size={10} color="#d97706" className="mr-1.5" />
+                <Text className="text-amber-700 text-xs font-bold">
+                  Bajo Stock
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        <View className="items-end">
+          <LinearGradient
+            colors={["#4f46e5", "#4338ca"]}
+            className="px-4 py-2 rounded-xl shadow-sm mb-3"
+          >
+            <Text className="text-white font-black text-lg">
+              C$ {item.price}
+            </Text>
+          </LinearGradient>
+          <View className="bg-gray-50 p-2 rounded-full border border-gray-100">
+            <Pencil size={16} color="#9ca3af" />
+          </View>
+        </View>
       </View>
-      <View className="items-end">
-        <Text className="text-indigo-600 font-bold text-xl">
-          C$ {item.price}
-        </Text>
-        <Text className="text-gray-400 text-sm">{item.stock} unid.</Text>
-      </View>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Search Bar */}
-      <View className="flex-row items-center bg-white p-3 rounded-2xl mb-4 shadow-sm border border-gray-100 h-14">
-        <Search color={Colors.primary} size={20} />
-        <TextInput
-          className="flex-1 ml-3 text-base text-gray-800 font-medium"
-          placeholder="Buscar productos..."
-          placeholderTextColor="#9ca3af"
-          value={search}
-          onChangeText={(text) => {
-            setSearch(text);
-          }}
+    <View style={styles.container}>
+      <StatusBar style="light" />
+      <ScreenHeader title="Inventario" subtitle="GESTIÓN DE PRODUCTOS" />
+      <View
+        style={{
+          flex: 1,
+          paddingTop: 16,
+          paddingHorizontal: 16,
+        }}
+      >
+        {/* SEARCH */}
+        <View className="flex-row items-center bg-white mx-1 px-4 py-3 rounded-[20px] mb-6 shadow-sm border border-gray-100">
+          <Search color={Colors.primary} size={22} />
+          <TextInput
+            className="flex-1 ml-3 text-lg text-indigo-950 font-bold"
+            placeholder="Buscar productos..."
+            placeholderTextColor="#94a3b8"
+            value={search}
+            onChangeText={setSearch}
+          />
+          {search.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setSearch("")}
+              className="bg-gray-100 p-1 rounded-full"
+            >
+              <X size={14} color="#94a3b8" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* LIST */}
+        <FlatList
+          data={products}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.uuid}
+          contentContainerStyle={{ paddingBottom: 100, paddingTop: 4 }}
+          showsVerticalScrollIndicator={false}
         />
-      </View>
 
-      {/* List */}
-      <FlatList
-        data={products}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.uuid}
-        contentContainerStyle={{ paddingBottom: 80 }}
-      />
-
-      {/* FAB */}
-      <TouchableOpacity
-        className="absolute bottom-6 right-6 bg-indigo-600 w-14 h-14 rounded-full justify-center items-center shadow-lg active:bg-indigo-700"
-        onPress={() => setModalVisible(true)}
-      >
-        <Plus color="white" size={28} />
-      </TouchableOpacity>
-
-      {/* Create Product Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View
+        {/* FAB */}
+        <TouchableOpacity
+          className="absolute bottom-8 right-6 bg-indigo-600 w-16 h-16 rounded-[24px] justify-center items-center shadow-lg shadow-indigo-300"
+          onPress={() => {
+            setEditingProduct(null);
+            setModalVisible(true);
+          }}
           style={{
-            flex: 1,
-            justifyContent: "flex-end",
-            backgroundColor: "rgba(0,0,0,0.5)",
+            shadowColor: "#4f46e5",
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.3,
+            shadowRadius: 12,
+            elevation: 8,
           }}
         >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            style={{
-              backgroundColor: "white",
-              borderTopLeftRadius: 24,
-              borderTopRightRadius: 24,
-              height: "85%",
-            }}
-          >
-            <View className="p-6 border-b border-gray-100 flex-row justify-between items-center">
-              <Text className="text-2xl font-bold text-gray-800">
-                Nuevo Producto
-              </Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <X color="gray" size={24} />
-              </TouchableOpacity>
-            </View>
+          <Plus color="white" size={32} strokeWidth={2.5} />
+        </TouchableOpacity>
 
-            <ScrollView className="p-6">
-              {/* Name */}
-              <Text className="text-gray-600 mb-2 font-semibold">
-                Nombre del Producto
-              </Text>
-              <Controller
-                control={control}
-                rules={{ required: "El nombre es obligatorio" }}
-                name="name"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <TextInput
-                    className={`bg-gray-100 p-4 rounded-xl mb-1 text-gray-800 ${
-                      errors.name ? "border border-red-500" : ""
-                    }`}
-                    placeholder="Ej: Jabón de baño"
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    value={value}
-                  />
-                )}
-              />
-              {errors.name && (
-                <Text className="text-red-500 text-xs mb-3">
-                  {errors.name.message}
+        {/* MODAL */}
+        <Modal visible={modalVisible} animationType="slide" transparent>
+          <View className="flex-1 justify-end bg-black/60">
+            <KeyboardAvoidingView
+              behavior={Platform.OS === "ios" ? "padding" : "height"}
+              className="bg-white rounded-t-[40px] h-[92%]"
+            >
+              <View className="p-8 pb-6 border-b border-gray-100 flex-row justify-between items-center bg-white rounded-t-[40px]">
+                <View>
+                  <Text className="text-3xl font-black text-indigo-950">
+                    {editingProduct ? "Editar" : "Nuevo"}
+                  </Text>
+                  <Text className="text-gray-400 font-bold text-sm">
+                    {editingProduct
+                      ? "Actualizar inventario"
+                      : "Registrar producto"}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={handleCloseModal}
+                  className="bg-gray-100 p-3 rounded-full hover:bg-gray-200"
+                >
+                  <X size={24} color="#1e1b4b" strokeWidth={2.5} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView className="p-8" showsVerticalScrollIndicator={false}>
+                {/* NAME */}
+                <Text className="text-indigo-950 mb-2 font-bold text-base">
+                  Nombre del Producto
                 </Text>
-              )}
+                <Controller
+                  control={control}
+                  rules={{ required: "El nombre es obligatorio" }}
+                  name="name"
+                  render={({ field: { onChange, onBlur, value } }) => (
+                    <TextInput
+                      className={`bg-gray-50 p-5 rounded-2xl mb-6 text-indigo-950 font-bold text-lg border ${
+                        errors.name ? "border-red-500" : "border-gray-100"
+                      }`}
+                      placeholder="Ej: Coca Cola 3L"
+                      placeholderTextColor="#cbd5e1"
+                      onBlur={onBlur}
+                      onChangeText={onChange}
+                      value={value}
+                    />
+                  )}
+                />
 
-              {/* Barcode */}
-              <Text className="text-gray-600 mb-2 font-semibold">
-                Código de Barras (Opcional)
-              </Text>
-              <View className="flex-row items-center gap-2 mb-4">
-                <View className="flex-1">
+                {/* BARCODE */}
+                <Text className="text-indigo-950 mb-2 font-bold text-base">
+                  Código de Barras
+                </Text>
+                <View className="flex-row mb-6">
                   <Controller
                     control={control}
                     name="barcode"
                     render={({ field: { onChange, onBlur, value } }) => (
                       <TextInput
-                        className="bg-gray-100 p-4 rounded-xl text-gray-800"
-                        placeholder="Escanea o escribe el código"
+                        className="flex-1 bg-gray-50 p-5 rounded-l-2xl text-indigo-950 font-bold text-lg border border-gray-100"
+                        placeholder="Escanear..."
+                        placeholderTextColor="#cbd5e1"
                         onBlur={onBlur}
                         onChangeText={onChange}
                         value={value}
                       />
                     )}
                   />
+                  <TouchableOpacity
+                    onPress={openScanner}
+                    className="bg-indigo-600 p-5 rounded-r-2xl justify-center items-center px-6"
+                  >
+                    <Camera color="white" size={24} strokeWidth={2.5} />
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                  onPress={openScanner}
-                  className="bg-indigo-100 p-4 rounded-xl items-center justify-center"
-                >
-                  <Camera color={Colors.primary} size={24} />
-                </TouchableOpacity>
-              </View>
 
-              <View className="flex-row gap-4 mb-4">
-                <View className="flex-1">
-                  <Text className="text-gray-600 mb-2 font-semibold">
-                    P. Venta
-                  </Text>
-                  <Controller
-                    control={control}
-                    rules={{ required: true, min: 0 }}
-                    name="price"
-                    render={({ field: { onChange, value } }) => (
-                      <TextInput
-                        className="bg-gray-100 p-4 rounded-xl text-gray-800"
-                        placeholder="0.00"
-                        keyboardType="numeric"
-                        onChangeText={(text) =>
-                          onChange(text.replace(/[^0-9.]/g, ""))
-                        }
-                        value={String(value)}
-                      />
-                    )}
-                  />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-gray-600 mb-2 font-semibold">
-                    P. Costo
-                  </Text>
-                  <Controller
-                    control={control}
-                    rules={{ required: true, min: 0 }}
-                    name="cost_price"
-                    render={({ field: { onChange, value } }) => (
-                      <TextInput
-                        className="bg-gray-100 p-4 rounded-xl text-gray-800"
-                        placeholder="0.00"
-                        keyboardType="numeric"
-                        onChangeText={(text) =>
-                          onChange(text.replace(/[^0-9.]/g, ""))
-                        }
-                        value={String(value)}
-                      />
-                    )}
-                  />
-                </View>
-              </View>
-
-              <View className="flex-row gap-4 mb-4">
-                <View className="flex-1">
-                  <Text className="text-gray-600 mb-2 font-semibold">
-                    Stock
-                  </Text>
-                  <Controller
-                    control={control}
-                    rules={{ required: true, min: 0 }}
-                    name="stock"
-                    render={({ field: { onChange, value } }) => (
-                      <TextInput
-                        className="bg-gray-100 p-4 rounded-xl text-gray-800"
-                        placeholder="0"
-                        keyboardType="numeric"
-                        onChangeText={(text) =>
-                          onChange(text.replace(/[^0-9]/g, ""))
-                        }
-                        value={String(value)}
-                      />
-                    )}
-                  />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-gray-600 mb-2 font-semibold">
-                    S. Mínimo
-                  </Text>
-                  <Controller
-                    control={control}
-                    rules={{ required: true, min: 0 }}
-                    name="min_stock"
-                    render={({ field: { onChange, value } }) => (
-                      <TextInput
-                        className="bg-gray-100 p-4 rounded-xl text-gray-800"
-                        placeholder="5"
-                        keyboardType="numeric"
-                        onChangeText={(text) =>
-                          onChange(text.replace(/[^0-9]/g, ""))
-                        }
-                        value={String(value)}
-                      />
-                    )}
-                  />
-                </View>
-              </View>
-
-              {/* Type Selection */}
-              <Text className="text-gray-600 mb-2 font-semibold">
-                Categoría
-              </Text>
-              <Controller
-                control={control}
-                name="type"
-                render={({ field: { onChange, value } }) => (
-                  <View className="flex-row flex-wrap gap-2 mb-6">
-                    {Object.values(ProductType).map((type) => (
-                      <TouchableOpacity
-                        key={type}
-                        onPress={() => onChange(type)}
-                        className={`px-4 py-2 rounded-full border ${
-                          value === type
-                            ? "bg-indigo-600 border-indigo-600"
-                            : "bg-gray-50 border-gray-200"
-                        }`}
-                      >
-                        <Text
-                          className={`text-sm ${
-                            value === type
-                              ? "text-white font-bold"
-                              : "text-gray-600"
-                          }`}
-                        >
-                          {type.replace("_", " ").toUpperCase()}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              />
-
-              <TouchableOpacity
-                onPress={handleSubmit(onSubmit)}
-                disabled={isSubmitting}
-                className={`bg-indigo-600 p-4 rounded-xl flex-row justify-center items-center mb-10 ${
-                  isSubmitting ? "opacity-50" : ""
-                }`}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator color="white" size="small" />
-                ) : (
-                  <>
-                    <Check color="white" size={20} className="mr-2" />
-                    <Text className="text-white font-bold text-lg text-center">
-                      Guardar Producto
+                <View className="flex-row space-x-4 gap-x-4 mb-6">
+                  <View className="flex-1">
+                    <Text className="text-indigo-950 mb-2 font-bold text-base">
+                      Precio Venta
                     </Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </ScrollView>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
+                    <Controller
+                      control={control}
+                      rules={{ required: true }}
+                      name="price"
+                      render={({ field: { onChange, onBlur, value } }) => (
+                        <TextInput
+                          className="bg-gray-50 p-5 rounded-2xl text-indigo-950 font-bold text-lg border border-gray-100"
+                          placeholder="0"
+                          placeholderTextColor="#cbd5e1"
+                          keyboardType="numeric"
+                          onBlur={onBlur}
+                          onChangeText={onChange}
+                          value={value}
+                        />
+                      )}
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-indigo-950 mb-2 font-bold text-base">
+                      Costo
+                    </Text>
+                    <Controller
+                      control={control}
+                      rules={{ required: true }}
+                      name="cost_price"
+                      render={({ field: { onChange, onBlur, value } }) => (
+                        <TextInput
+                          className="bg-gray-50 p-5 rounded-2xl text-indigo-950 font-bold text-lg border border-gray-100"
+                          placeholder="0"
+                          placeholderTextColor="#cbd5e1"
+                          keyboardType="numeric"
+                          onBlur={onBlur}
+                          onChangeText={onChange}
+                          value={value}
+                        />
+                      )}
+                    />
+                  </View>
+                </View>
 
-      <ScannerModal
-        visible={scannerVisible}
-        onClose={() => setScannerVisible(false)}
-        onScanned={handleBarCodeScanned}
-      />
-    </SafeAreaView>
+                <View className="flex-row space-x-4 gap-x-4 mb-10">
+                  <View className="flex-1">
+                    <Text className="text-indigo-950 mb-2 font-bold text-base">
+                      Stock Actual
+                    </Text>
+                    <Controller
+                      control={control}
+                      rules={{ required: true }}
+                      name="stock"
+                      render={({ field: { onChange, onBlur, value } }) => (
+                        <TextInput
+                          className="bg-gray-50 p-5 rounded-2xl text-indigo-950 font-bold text-lg border border-gray-100"
+                          placeholder="0"
+                          placeholderTextColor="#cbd5e1"
+                          keyboardType="numeric"
+                          onBlur={onBlur}
+                          onChangeText={onChange}
+                          value={value}
+                        />
+                      )}
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-indigo-950 mb-2 font-bold text-base">
+                      Stock Mínimo
+                    </Text>
+                    <Controller
+                      control={control}
+                      rules={{ required: true }}
+                      name="min_stock"
+                      render={({ field: { onChange, onBlur, value } }) => (
+                        <TextInput
+                          className="bg-gray-50 p-5 rounded-2xl text-indigo-950 font-bold text-lg border border-gray-100"
+                          placeholder="5"
+                          placeholderTextColor="#cbd5e1"
+                          keyboardType="numeric"
+                          onBlur={onBlur}
+                          onChangeText={onChange}
+                          value={value}
+                        />
+                      )}
+                    />
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  onPress={handleSubmit(onSubmit)}
+                  disabled={isSubmitting}
+                  className="bg-indigo-600 p-5 rounded-2xl flex-row justify-center items-center shadow-lg shadow-indigo-200 active:bg-indigo-700"
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <>
+                      <Check color="white" size={22} strokeWidth={3} />
+                      <Text className="text-white font-black text-lg ml-3 uppercase tracking-wider">
+                        {editingProduct ? "Actualizar" : "Guardar"}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+                <View className="h-32" />
+              </ScrollView>
+            </KeyboardAvoidingView>
+          </View>
+        </Modal>
+
+        {/* SCANNER MODAL */}
+        <ScannerModal
+          visible={scannerVisible}
+          onClose={() => setScannerVisible(false)}
+          onScanned={handleBarCodeScanned}
+        />
+      </View>
+    </View>
   );
 }
 
@@ -422,36 +507,26 @@ function ScannerModal({
 }: {
   visible: boolean;
   onClose: () => void;
-  onScanned: (data: { data: string }) => void;
+  onScanned: (result: BarcodeScanningResult) => void;
 }) {
   return (
-    <Modal visible={visible} animationType="slide" transparent={false}>
+    <Modal visible={visible} animationType="slide">
       <View className="flex-1 bg-black">
         <CameraView
           style={StyleSheet.absoluteFillObject}
           facing="back"
-          onBarcodeScanned={onScanned}
+          onBarcodeScanned={visible ? onScanned : undefined}
           barcodeScannerSettings={{
             barcodeTypes: ["ean13", "ean8", "qr", "upc_a", "code128"],
           }}
         />
-        <View className="flex-1 justify-between p-6">
-          <TouchableOpacity
-            onPress={onClose}
-            className="self-end bg-black/50 p-2 rounded-full mt-4"
-          >
-            <X color="white" size={30} />
-          </TouchableOpacity>
 
-          <View className="items-center mb-10">
-            <View className="w-64 h-64 border-2 border-white/50 rounded-lg justify-center items-center">
-              <View className="w-48 h-0.5 bg-red-500 opacity-50" />
-            </View>
-            <Text className="text-white font-bold mt-4 bg-black/50 px-4 py-2 rounded-full">
-              Escanea un código de barras
-            </Text>
-          </View>
-        </View>
+        <TouchableOpacity
+          onPress={onClose}
+          className="absolute top-12 right-6 bg-black/50 p-2 rounded-full"
+        >
+          <X color="white" size={30} />
+        </TouchableOpacity>
       </View>
     </Modal>
   );
@@ -461,13 +536,5 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
-    flexDirection: "column",
   },
-  absoluteFillObject: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-  } as const,
 });

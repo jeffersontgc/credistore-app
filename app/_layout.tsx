@@ -6,6 +6,8 @@ import {
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
+// import Toast from "react-native-toast-message";
+import { Toast } from "@/components/Toast";
 
 import "../global.css";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -27,6 +29,8 @@ export default function RootLayout() {
         />
       </Stack>
       <StatusBar style="auto" />
+      <StatusBar style="auto" />
+      <Toast />
     </ThemeProvider>
   );
 }
