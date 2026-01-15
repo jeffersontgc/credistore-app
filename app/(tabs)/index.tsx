@@ -1,10 +1,26 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 import { Scan, Plus, CreditCard, DollarSign } from "lucide-react-native";
+import { useStore } from "@/store/useStore";
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const { sales, debts } = useStore();
+
+  const metrics = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0];
+
+    const todaySales = sales
+      .filter((s) => s.createdAt.startsWith(today))
+      .reduce((acc, s) => acc + s.totalAmount, 0);
+
+    const todayCredits = debts
+      .filter((d) => d.createdAt.startsWith(today))
+      .reduce((acc, d) => acc + d.amount, 0);
+
+    return { todaySales, todayCredits };
+  }, [sales, debts]);
 
   const ActionCard = ({ title, icon: Icon, color, route }: any) => (
     <TouchableOpacity
@@ -28,11 +44,15 @@ export default function DashboardScreen() {
       <View className="flex-row justify-between mb-4 bg-white p-4 rounded-2xl shadow-sm">
         <View className="items-center flex-1 border-r border-gray-100">
           <Text className="text-gray-400 text-sm">Ventas Hoy</Text>
-          <Text className="text-2xl font-bold text-green-600">C$ 1,250</Text>
+          <Text className="text-2xl font-bold text-green-600">
+            C$ {metrics.todaySales.toLocaleString()}
+          </Text>
         </View>
         <View className="items-center flex-1">
           <Text className="text-gray-400 text-sm">Créditos Hoy</Text>
-          <Text className="text-2xl font-bold text-orange-500">C$ 450</Text>
+          <Text className="text-2xl font-bold text-orange-500">
+            C$ {metrics.todayCredits.toLocaleString()}
+          </Text>
         </View>
       </View>
 

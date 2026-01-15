@@ -1,52 +1,87 @@
 import React, { useState } from "react";
-import { View, Text, FlatList, TextInput } from "react-native";
-import { useQuery } from "@apollo/client/react";
-import { GET_DEBTS } from "@/lib/queries";
-import { GetDebtsQuery, GetDebtsQueryVariables } from "@/types/graphql";
-import { Search, User } from "lucide-react-native";
+import {
+  View,
+  Text,
+  FlatList,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+} from "react-native";
+import { useStore, DebtStatus, Debt } from "@/store/useStore";
+import { Search, User as UserIcon, CheckCircle } from "lucide-react-native";
 import { Colors } from "@/constants/Colors";
 import useDebounce from "@/hooks/useDebounce";
 
 export default function DebtsScreen() {
   const [search, setSearch] = useState("");
-  const searchDebounce = useDebounce(search, 500);
+  const searchDebounce = useDebounce(search, 300);
 
-  const { data, loading, refetch } = useQuery<
-    GetDebtsQuery,
-    GetDebtsQueryVariables
-  >(GET_DEBTS, {
-    variables: { search: searchDebounce, page: 1, limit: 20 },
-  });
+  const { debts: allDebts, updateDebtStatus } = useStore();
 
-  const debts = data?.findAllDebts?.data || [];
+  const debts = allDebts
+    .filter((d) => {
+      const name = `${d.user.firstname} ${d.user.lastname}`.toLowerCase();
+      return name.includes(searchDebounce.toLowerCase());
+    })
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
-  const renderItem = ({ item }: any) => (
-    <View className="bg-white p-4 mb-3 rounded-xl shadow-sm flex-row justify-between items-center">
-      <View className="flex-row items-center">
-        <View className="bg-gray-100 p-3 rounded-full mr-3">
-          <User size={20} color="gray" />
+  const handlePay = (uuid: string) => {
+    Alert.alert("Confirmar Pago", "¿Deseas marcar este fiado como PAGADO?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Sí, Pagado",
+        onPress: () => updateDebtStatus(uuid, DebtStatus.PAID),
+      },
+    ]);
+  };
+
+  const renderItem = ({ item }: { item: Debt }) => (
+    <View className="bg-white p-4 mb-3 rounded-xl shadow-sm">
+      <View className="flex-row justify-between items-center mb-3">
+        <View className="flex-row items-center">
+          <View className="bg-gray-100 p-3 rounded-full mr-3">
+            <UserIcon size={20} color="gray" />
+          </View>
+          <View>
+            <Text className="text-lg font-bold text-gray-800">
+              {item.user.firstname} {item.user.lastname}
+            </Text>
+            <Text className="text-gray-500 text-xs">
+              Vence: {new Date(item.date_pay).toLocaleDateString()}
+            </Text>
+          </View>
         </View>
-        <View>
-          <Text className="text-lg font-bold text-gray-800">
-            {item.user
-              ? `${item.user.firstname} ${item.user.lastname}`
-              : "Cliente Desconocido"}
+        <View className="items-end">
+          <Text className="text-orange-600 font-bold text-xl">
+            C$ {item.amount}
           </Text>
-          <Text className="text-gray-500 text-xs">
-            Actualizado: {new Date(item.updated_at).toLocaleDateString()}
-          </Text>
+          <View
+            className={`px-2 py-0.5 rounded ${
+              item.status === DebtStatus.PAID ? "bg-green-100" : "bg-orange-100"
+            }`}
+          >
+            <Text
+              className={`text-[10px] font-bold uppercase ${
+                item.status === DebtStatus.PAID
+                  ? "text-green-700"
+                  : "text-orange-700"
+              }`}
+            >
+              {item.status}
+            </Text>
+          </View>
         </View>
       </View>
-      <View className="items-end">
-        <Text className="text-orange-600 font-bold text-xl">
-          C$ {item.amount}
-        </Text>
-        <Text
-          className={`text-xs font-bold px-2 py-1 rounded bg-orange-100 text-orange-600`}
+
+      {item.status !== DebtStatus.PAID && (
+        <TouchableOpacity
+          onPress={() => handlePay(item.uuid)}
+          className="bg-indigo-600 p-3 rounded-xl flex-row justify-center items-center"
         >
-          {item.status}
-        </Text>
-      </View>
+          <CheckCircle color="white" size={18} />
+          <Text className="text-white font-bold ml-2">Marcar como Pagado</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 
@@ -66,8 +101,6 @@ export default function DebtsScreen() {
         data={debts}
         renderItem={renderItem}
         keyExtractor={(item) => item.uuid}
-        refreshing={loading}
-        onRefresh={refetch}
       />
     </View>
   );

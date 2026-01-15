@@ -13,17 +13,7 @@ import {
   Alert,
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { useQuery, useMutation } from "@apollo/client/react";
-import { GET_PRODUCTS, CREATE_PRODUCT } from "@/lib/queries";
-import {
-  GetProductsQuery,
-  GetProductsQueryVariables,
-  Product,
-  ProductType,
-  CreateProductMutation,
-  CreateProductMutationVariables,
-  CreateProductInput,
-} from "@/types/graphql";
+import { useStore, ProductType, Product } from "@/store/useStore";
 import {
   Search,
   Plus,
@@ -36,13 +26,33 @@ import { Colors } from "@/constants/Colors";
 import useDebounce from "@/hooks/useDebounce";
 import { useForm, Controller } from "react-hook-form";
 
+interface CreateProductForm {
+  name: string;
+  barcode?: string;
+  price: string;
+  cost_price: string;
+  stock: string;
+  min_stock: string;
+  type: ProductType;
+}
+
 export default function ProductsScreen() {
   const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
   const [modalVisible, setModalVisible] = useState(false);
   const [scannerVisible, setScannerVisible] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
-  const searchDebounce = useDebounce(search, 500);
+  const searchDebounce = useDebounce(search, 300);
+
+  const { products: allProducts, addProduct } = useStore();
+
+  const products = allProducts
+    .filter(
+      (p) =>
+        p.name.toLowerCase().includes(searchDebounce.toLowerCase()) ||
+        (p.barcodes &&
+          p.barcodes.some((b) => b.barcode.includes(searchDebounce)))
+    )
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
   // Form setup
   const {
@@ -51,53 +61,35 @@ export default function ProductsScreen() {
     reset,
     setValue,
     formState: { errors, isSubmitting },
-  } = useForm<CreateProductInput>({
+  } = useForm<CreateProductForm>({
     defaultValues: {
       name: "",
       barcode: "",
-      price: 0,
-      cost_price: 0,
-      stock: 0,
-      min_stock: 5,
+      price: "0",
+      cost_price: "0",
+      stock: "0",
+      min_stock: "5",
       type: ProductType.GRANOS_BASICOS,
     },
   });
 
-  const { data, loading, fetchMore, refetch } = useQuery<
-    GetProductsQuery,
-    GetProductsQueryVariables
-  >(GET_PRODUCTS, {
-    variables: { search: searchDebounce, page: 1, limit: 10 },
-    notifyOnNetworkStatusChange: true,
-  });
-
-  const [createProduct] = useMutation<
-    CreateProductMutation,
-    CreateProductMutationVariables
-  >(CREATE_PRODUCT, {
-    onCompleted: () => {
+  const onSubmit = (formData: CreateProductForm) => {
+    try {
+      addProduct({
+        name: formData.name,
+        barcode: formData.barcode,
+        price: Number(formData.price),
+        cost_price: Number(formData.cost_price),
+        stock: Number(formData.stock),
+        min_stock: Number(formData.min_stock),
+        type: formData.type,
+      });
       Alert.alert("Éxito", "Producto creado correctamente");
       setModalVisible(false);
       reset();
-      refetch();
-    },
-    onError: (error) => {
-      Alert.alert("Error", error.message || "No se pudo crear el producto");
-    },
-  });
-
-  const onSubmit = (formData: CreateProductInput) => {
-    createProduct({
-      variables: {
-        input: {
-          ...formData,
-          price: Number(formData.price),
-          cost_price: Number(formData.cost_price),
-          stock: Number(formData.stock),
-          min_stock: Number(formData.min_stock),
-        },
-      },
-    });
+    } catch (error) {
+      Alert.alert("Error", "No se pudo crear el producto");
+    }
   };
 
   const handleBarCodeScanned = ({ data }: { data: string }) => {
@@ -117,33 +109,6 @@ export default function ProductsScreen() {
       }
     }
     setScannerVisible(true);
-  };
-
-  const products = data?.findAllProducts?.data || [];
-  const hasNextPage = data?.findAllProducts?.hasNextPage;
-
-  const loadMore = () => {
-    if (hasNextPage && !loading) {
-      fetchMore({
-        variables: { page: page + 1 },
-        updateQuery: (
-          prev: GetProductsQuery,
-          { fetchMoreResult }: { fetchMoreResult?: GetProductsQuery }
-        ) => {
-          if (!fetchMoreResult) return prev;
-          return {
-            findAllProducts: {
-              ...fetchMoreResult.findAllProducts,
-              data: [
-                ...prev.findAllProducts.data,
-                ...fetchMoreResult.findAllProducts.data,
-              ],
-            },
-          };
-        },
-      });
-      setPage((p) => p + 1);
-    }
   };
 
   const renderItem = ({ item }: { item: Product }) => (
@@ -184,7 +149,6 @@ export default function ProductsScreen() {
           value={search}
           onChangeText={(text) => {
             setSearch(text);
-            setPage(1);
           }}
         />
       </View>
@@ -194,11 +158,6 @@ export default function ProductsScreen() {
         data={products}
         renderItem={renderItem}
         keyExtractor={(item) => item.uuid}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={
-          loading ? <ActivityIndicator className="mt-4" /> : null
-        }
         contentContainerStyle={{ paddingBottom: 80 }}
       />
 

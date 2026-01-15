@@ -14,28 +14,8 @@ import {
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { useMutation, useApolloClient, useQuery } from "@apollo/client/react";
+import { useStore, Product, User } from "@/store/useStore";
 import useDebounce from "@/hooks/useDebounce";
-import {
-  GET_PRODUCT_BY_BARCODE,
-  CREATE_SALE,
-  GET_PRODUCTS,
-  GET_USERS,
-  CREATE_DEBT,
-} from "@/lib/queries";
-import {
-  GetProductByBarcodeQuery,
-  GetProductByBarcodeQueryVariables,
-  CreateSaleMutation,
-  CreateSaleMutationVariables,
-  Product,
-  User,
-  GetProductsQuery,
-  GetProductsQueryVariables,
-  GetUsersQuery,
-  CreateDebtMutation,
-  CreateDebtMutationVariables,
-} from "@/types/graphql";
 import {
   Trash2,
   ShoppingCart,
@@ -57,22 +37,19 @@ interface CartItem {
 }
 
 export default function ScannerScreen() {
-  const client = useApolloClient();
+  const { products, users, processSale, processDebt } = useStore();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [searching, setSearching] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"scanner" | "manual">("scanner");
-  const [manualSearch, setManualSearch] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [manualQuantity, setManualQuantity] = useState(1);
   const [isDebtModalOpen, setIsDebtModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [dueDate, setDueDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
-
-  // Removed useLazyQuery in favor of client.query for imperative fetching
 
   const handleBarCodeScanned = async ({
     type,
@@ -85,65 +62,20 @@ export default function ScannerScreen() {
     setScanned(true);
     setSearching(true);
 
-    try {
-      const result = await client.query<
-        GetProductByBarcodeQuery,
-        GetProductByBarcodeQueryVariables
-      >({
-        query: GET_PRODUCT_BY_BARCODE,
-        variables: { barcode: data },
-        fetchPolicy: "network-only",
-      });
+    // Local search for product
+    const product = products.find((p) =>
+      p.barcodes?.some((b) => b.barcode === data)
+    );
 
-      if (result.data?.productByBarcode) {
-        addToCart(result.data.productByBarcode);
-        // Play beep sound here if possible
-      } else {
-        Alert.alert("No encontrado", "Producto no registrado");
-      }
-    } catch (error) {
-      console.error(error);
-      Alert.alert("Error", "Producto no encontrado o error de red");
-    } finally {
-      setSearching(false);
-      setTimeout(() => setScanned(false), 1500);
+    if (product) {
+      addToCart(product);
+    } else {
+      Alert.alert("No encontrado", "Producto no registrado locally");
     }
+
+    setSearching(false);
+    setTimeout(() => setScanned(false), 1500);
   };
-
-  const [createSale, { loading: processing }] = useMutation<
-    CreateSaleMutation,
-    CreateSaleMutationVariables
-  >(CREATE_SALE, {
-    onCompleted: (data) => {
-      Alert.alert(
-        "Éxito",
-        `Venta registrada. Total: C$ ${data.createSale.totalAmount}`
-      );
-      setCart([]);
-      setIsCheckoutOpen(false);
-    },
-    onError: (err) => {
-      Alert.alert("Error", err.message);
-    },
-  });
-
-  const [createDebt, { loading: processingDebt }] = useMutation<
-    CreateDebtMutation,
-    CreateDebtMutationVariables
-  >(CREATE_DEBT, {
-    onCompleted: (data) => {
-      Alert.alert(
-        "Éxito",
-        `Fiado registrado para ${data.createDebt.user.firstname}. Monto: C$ ${data.createDebt.amount}`
-      );
-      setCart([]);
-      setIsDebtModalOpen(false);
-      setIsCheckoutOpen(false);
-    },
-    onError: (err) => {
-      Alert.alert("Error al registrar fiado", err.message);
-    },
-  });
 
   if (!permission) {
     return <View />;
@@ -209,7 +141,14 @@ export default function ScannerScreen() {
       quantity: item.quantity,
     }));
 
-    await createSale({ variables: { input: { items } } });
+    try {
+      processSale(items);
+      Alert.alert("Éxito", "Venta registrada localmente");
+      setCart([]);
+      setIsCheckoutOpen(false);
+    } catch (e) {
+      Alert.alert("Error", "No se pudo registrar la venta");
+    }
   };
 
   const handleDebtSubmit = async () => {
@@ -218,20 +157,20 @@ export default function ScannerScreen() {
       return;
     }
 
-    const products = cart.map((item) => ({
+    const items = cart.map((item) => ({
       product_uuid: item.product.uuid,
       quantity: item.quantity,
     }));
 
-    await createDebt({
-      variables: {
-        input: {
-          user_uuid: selectedUser.uuid,
-          dueDate: dueDate.toISOString(),
-          products,
-        },
-      },
-    });
+    try {
+      processDebt(selectedUser.uuid, dueDate.toISOString(), items);
+      Alert.alert("Éxito", `Fiado registrado para ${selectedUser.firstname}`);
+      setCart([]);
+      setIsDebtModalOpen(false);
+      setIsCheckoutOpen(false);
+    } catch (e) {
+      Alert.alert("Error", "No se pudo registrar el fiado");
+    }
   };
 
   return (
@@ -389,15 +328,11 @@ export default function ScannerScreen() {
               <TouchableOpacity
                 className="flex-1 bg-green-100 p-6 rounded-2xl items-center border-2 border-green-500"
                 onPress={() => handleCheckout("CASH")}
-                disabled={processing}
               >
                 <DollarSign size={40} color="#15803d" />
                 <Text className="font-bold text-green-700 mt-2 text-lg">
                   Contado
                 </Text>
-                {processing && (
-                  <ActivityIndicator color="green" className="mt-2" />
-                )}
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -459,7 +394,7 @@ export default function ScannerScreen() {
                     value={dueDate}
                     mode="date"
                     display={Platform.OS === "ios" ? "spinner" : "default"}
-                    onChange={(event, date) => {
+                    onChange={(_, date) => {
                       setShowDatePicker(Platform.OS === "ios");
                       if (date) setDueDate(date);
                     }}
@@ -482,18 +417,14 @@ export default function ScannerScreen() {
 
               <TouchableOpacity
                 onPress={handleDebtSubmit}
-                disabled={processingDebt || !selectedUser}
+                disabled={!selectedUser}
                 className={`bg-indigo-600 mt-8 py-5 rounded-2xl items-center shadow-lg ${
-                  processingDebt || !selectedUser ? "opacity-50" : ""
+                  !selectedUser ? "opacity-50" : ""
                 }`}
               >
-                {processingDebt ? (
-                  <ActivityIndicator color="white" />
-                ) : (
-                  <Text className="text-white font-black text-lg">
-                    Confirmar Fiado
-                  </Text>
-                )}
+                <Text className="text-white font-black text-lg">
+                  Confirmar Fiado
+                </Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -512,9 +443,8 @@ function UserSelector({
 }) {
   const [search, setSearch] = useState("");
   const [isVisible, setIsVisible] = useState(false);
-  const { data, loading } = useQuery<GetUsersQuery>(GET_USERS);
+  const { users } = useStore();
 
-  const users = data?.users || [];
   const filteredUsers = users.filter((u) =>
     `${u.firstname} ${u.lastname}`.toLowerCase().includes(search.toLowerCase())
   );
@@ -538,9 +468,7 @@ function UserSelector({
       {isVisible && search.length > 0 && (
         <View className="absolute top-14 left-0 right-0 bg-white rounded-2xl shadow-2xl border border-gray-100 max-h-48 overflow-hidden z-50">
           <ScrollView keyboardShouldPersistTaps="handled">
-            {loading ? (
-              <ActivityIndicator className="p-4" />
-            ) : filteredUsers.length > 0 ? (
+            {filteredUsers.length > 0 ? (
               filteredUsers.map((u) => (
                 <TouchableOpacity
                   key={u.uuid}
@@ -582,20 +510,23 @@ function ManualProductSelector({
   onSelect: (p: Product, q: number) => void;
 }) {
   const [search, setSearch] = useState("");
-  const debouncedSearch = useDebounce(search, 500);
+  const debouncedSearch = useDebounce(search, 300);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [isListVisible, setIsListVisible] = useState(false);
 
-  const { data, loading } = useQuery<
-    GetProductsQuery,
-    GetProductsQueryVariables
-  >(GET_PRODUCTS, {
-    variables: { search: debouncedSearch, page: 1, limit: 10 },
-    skip: !debouncedSearch && !isListVisible,
-  });
+  const { products: allProducts } = useStore();
 
-  const products = data?.findAllProducts?.data || [];
+  const products = allProducts
+    .filter(
+      (p) =>
+        p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        (p.barcodes &&
+          p.barcodes.some((b) =>
+            b.barcode.toLowerCase().includes(debouncedSearch.toLowerCase())
+          ))
+    )
+    .slice(0, 10);
 
   return (
     <View className="flex-1 bg-white p-5">
@@ -627,11 +558,7 @@ function ManualProductSelector({
         {isListVisible && (search.length > 0 || products.length > 0) && (
           <View className="absolute top-14 left-0 right-0 bg-white rounded-2xl shadow-2xl border border-gray-100 max-h-64 overflow-hidden z-50">
             <ScrollView keyboardShouldPersistTaps="handled">
-              {loading ? (
-                <View className="p-4 items-center">
-                  <ActivityIndicator color={Colors.primary} size="small" />
-                </View>
-              ) : products.length > 0 ? (
+              {products.length > 0 ? (
                 products.map((p) => (
                   <TouchableOpacity
                     key={p.uuid}

@@ -9,23 +9,14 @@ import {
   Users,
 } from "lucide-react-native";
 import { Colors } from "@/constants/Colors";
-import { useAuth } from "@/context/AuthContext";
-import { TouchableOpacity } from "react-native";
 
 export default function TabLayout() {
-  const { signOut } = useAuth();
-
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textLight,
         headerShown: true,
-        headerRight: () => (
-          <TouchableOpacity onPress={signOut} style={{ marginRight: 15 }}>
-            <Users color={Colors.text} size={24} />
-          </TouchableOpacity>
-        ),
       }}
     >
       <Tabs.Screen
@@ -66,8 +57,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="users"
         options={{
-          href: null, // Hidden from tab bar, accessed via navigation if needed
-          title: "Usuarios",
+          title: "Clientes",
+          tabBarIcon: ({ color }) => <Users color={color} size={24} />,
         }}
       />
     </Tabs>

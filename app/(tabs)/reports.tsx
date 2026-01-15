@@ -9,14 +9,7 @@ import {
   Platform,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { useQuery } from "@apollo/client/react";
-import { GET_REPORTS_DAILY, GET_REPORTS_MONTHLY } from "@/lib/queries";
-import {
-  GetDailyReportQuery,
-  GetDailyReportQueryVariables,
-  GetMonthlyReportQuery,
-  GetMonthlyReportQueryVariables,
-} from "@/types/graphql";
+import { useStore, DebtStatus } from "@/store/useStore";
 import {
   CreditCard,
   ShoppingBag,
@@ -29,6 +22,7 @@ import {
   ChevronRight,
 } from "lucide-react-native";
 import { Colors } from "@/constants/Colors";
+import { useMemo } from "react";
 
 type TabType = "daily" | "monthly";
 
@@ -37,47 +31,99 @@ export default function ReportsScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
 
-  // Daily Query
-  const {
-    data: dailyData,
-    loading: dailyLoading,
-    refetch: refetchDaily,
-  } = useQuery<GetDailyReportQuery, GetDailyReportQueryVariables>(
-    GET_REPORTS_DAILY,
-    {
-      variables: { date: selectedDate.toISOString().split("T")[0] },
-      skip: activeTab !== "daily",
-      fetchPolicy: "network-only",
-    }
-  );
+  const { sales, debts, products } = useStore();
 
-  // Monthly Query
-  const {
-    data: monthlyData,
-    loading: monthlyLoading,
-    refetch: refetchMonthly,
-  } = useQuery<GetMonthlyReportQuery, GetMonthlyReportQueryVariables>(
-    GET_REPORTS_MONTHLY,
-    {
-      variables: {
-        year: selectedDate.getFullYear(),
-        month: selectedDate.getMonth() + 1,
-      },
-      skip: activeTab !== "monthly",
-      fetchPolicy: "network-only",
-    }
-  );
+  const report = useMemo(() => {
+    const isSameDay = (date1: Date, date2: Date) =>
+      date1.getFullYear() === date2.getFullYear() &&
+      date1.getMonth() === date2.getMonth() &&
+      date1.getDate() === date2.getDate();
 
-  const report =
-    activeTab === "daily"
-      ? dailyData?.dailySalesReportByDate
-      : monthlyData?.monthlySalesReportByYearMonth;
+    const isSameMonth = (date1: Date, date2: Date) =>
+      date1.getFullYear() === date2.getFullYear() &&
+      date1.getMonth() === date2.getMonth();
 
-  const loading = activeTab === "daily" ? dailyLoading : monthlyLoading;
+    const filteredSales = sales.filter((s) => {
+      const d = new Date(s.createdAt);
+      return activeTab === "daily"
+        ? isSameDay(d, selectedDate)
+        : isSameMonth(d, selectedDate);
+    });
+
+    const filteredDebts = debts.filter((d) => {
+      const dt = new Date(d.createdAt);
+      return activeTab === "daily"
+        ? isSameDay(dt, selectedDate)
+        : isSameMonth(dt, selectedDate);
+    });
+
+    if (filteredSales.length === 0 && filteredDebts.length === 0) return null;
+
+    const totalCashSales = filteredSales.reduce(
+      (acc, s) => acc + s.totalAmount,
+      0
+    );
+    const totalCreditSales = filteredDebts.reduce(
+      (acc, d) => acc + d.amount,
+      0
+    );
+    const totalSales = totalCashSales + totalCreditSales;
+    const totalTransactions = filteredSales.length + filteredDebts.length;
+
+    const totalProductsSold =
+      filteredSales.reduce(
+        (acc, s) => acc + s.items.reduce((sum, item) => sum + item.quantity, 0),
+        0
+      ) +
+      filteredDebts.reduce(
+        (acc, d) => acc + d.products.reduce((sum, p) => sum + p.quantity, 0),
+        0
+      );
+
+    const calcProfit = (items: any[]) =>
+      items.reduce((acc, item) => {
+        const product = products.find((p) => p.uuid === item.product_uuid);
+        const costPrice = product?.cost_price || 0;
+        return acc + (item.price - costPrice) * item.quantity;
+      }, 0);
+
+    const totalProfit =
+      filteredSales.reduce((acc, s) => acc + calcProfit(s.items), 0) +
+      filteredDebts.reduce((acc, d) => acc + calcProfit(d.products), 0);
+
+    const activeDebts = filteredDebts.filter(
+      (d) => d.status === DebtStatus.ACTIVE
+    );
+    const pendingDebts = filteredDebts.filter(
+      (d) => d.status === DebtStatus.PENDING
+    );
+    const paidDebts = filteredDebts.filter((d) => d.status === DebtStatus.PAID);
+    const settledDebts = filteredDebts.filter(
+      (d) => d.status === DebtStatus.SETTLED
+    );
+
+    return {
+      total_sales: totalSales,
+      total_profit: totalProfit,
+      total_transactions: totalTransactions,
+      average_sale_amount:
+        totalTransactions > 0 ? totalSales / totalTransactions : 0,
+      total_cash_sales: totalCashSales,
+      total_credit_sales: totalCreditSales,
+      total_products_sold: totalProductsSold,
+      total_active_amount: activeDebts.reduce((acc, d) => acc + d.amount, 0),
+      active_debts_count: activeDebts.length,
+      pending_debts_count: pendingDebts.length,
+      paid_debts_count: paidDebts.length,
+      settled_debts_count: settledDebts.length,
+      average_daily_sales: activeTab === "monthly" ? totalSales / 30 : 0, // Simplified
+    };
+  }, [sales, debts, selectedDate, activeTab]);
+
+  const loading = false;
 
   const onRefresh = () => {
-    if (activeTab === "daily") refetchDaily();
-    else refetchMonthly();
+    // No-op for local store
   };
 
   const changeDate = (amount: number) => {
@@ -97,7 +143,21 @@ export default function ReportsScreen() {
     }
   };
 
-  const StatCard = ({ title, value, icon: Icon, color, bg, subtitle }: any) => (
+  const StatCard = ({
+    title,
+    value,
+    icon: Icon,
+    color,
+    bg,
+    subtitle,
+  }: {
+    title: string;
+    value: string;
+    icon: any;
+    color: string;
+    bg: string;
+    subtitle?: string;
+  }) => (
     <View className="bg-white p-4 rounded-2xl shadow-sm mb-3 border border-gray-100">
       <View className="flex-row items-center mb-1">
         <View className={`${bg} p-2 rounded-lg mr-3`}>
@@ -325,6 +385,71 @@ export default function ReportsScreen() {
                 </Text>
               </View>
             )}
+
+            {/* Inventory Valuation Section */}
+            <Text className="text-lg font-bold text-gray-800 mt-8 mb-3 px-1">
+              Valor del Inventario
+            </Text>
+            <View className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 mb-10">
+              <View className="flex-row items-center justify-between mb-4 pb-4 border-b border-gray-50">
+                <View className="flex-row items-center">
+                  <View className="bg-blue-50 p-2 rounded-lg mr-3">
+                    <Package size={20} color={Colors.primary} />
+                  </View>
+                  <View>
+                    <Text className="text-gray-800 font-bold">
+                      Inversión Total
+                    </Text>
+                    <Text className="text-gray-400 text-xs">
+                      A precio de costo
+                    </Text>
+                  </View>
+                </View>
+                <Text className="text-xl font-bold text-gray-800">
+                  C${" "}
+                  {products
+                    .reduce((acc, p) => acc + p.cost_price * p.stock, 0)
+                    .toLocaleString()}
+                </Text>
+              </View>
+
+              <View className="flex-row items-center justify-between mb-4 pb-4 border-b border-gray-50">
+                <View className="flex-row items-center">
+                  <View className="bg-green-50 p-2 rounded-lg mr-3">
+                    <TrendingUp size={20} color="#15803d" />
+                  </View>
+                  <View>
+                    <Text className="text-gray-800 font-bold">
+                      Venta Potencial
+                    </Text>
+                    <Text className="text-gray-400 text-xs">
+                      Si se vende todo
+                    </Text>
+                  </View>
+                </View>
+                <Text className="text-xl font-bold text-green-700">
+                  C${" "}
+                  {products
+                    .reduce((acc, p) => acc + p.price * p.stock, 0)
+                    .toLocaleString()}
+                </Text>
+              </View>
+
+              <View className="flex-row bg-indigo-50 p-3 rounded-2xl items-center justify-between">
+                <Text className="text-indigo-800 font-bold">
+                  Ganancia Proyectada
+                </Text>
+                <Text className="text-indigo-950 font-black text-lg">
+                  C${" "}
+                  {products
+                    .reduce(
+                      (acc, p) => acc + (p.price - p.cost_price) * p.stock,
+                      0
+                    )
+                    .toLocaleString()}
+                </Text>
+              </View>
+            </View>
           </View>
         )}
       </ScrollView>
