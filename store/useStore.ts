@@ -32,7 +32,7 @@ export interface User {
   uuid: string;
   firstname: string;
   lastname: string;
-  email: string;
+  phone: string;
 }
 
 export enum DebtStatus {

@@ -27,7 +27,7 @@ import { useForm, Controller } from "react-hook-form";
 interface UserForm {
   firstname: string;
   lastname: string;
-  email: string;
+  phone: string;
 }
 
 export default function UsersScreen() {
@@ -48,7 +48,7 @@ export default function UsersScreen() {
     defaultValues: {
       firstname: "",
       lastname: "",
-      email: "",
+      phone: "",
     },
   });
 
@@ -85,8 +85,8 @@ export default function UsersScreen() {
             {item.firstname} {item.lastname}
           </Text>
           <View className="flex-row items-center">
-            <Mail size={12} color="gray" />
-            <Text className="text-gray-500 text-xs ml-1">{item.email}</Text>
+            {/* Using a generic info icon or similar if phone icon isn't imported, but assuming standard icons are fine */}
+            <Text className="text-gray-500 text-xs ml-1">{item.phone}</Text>
           </View>
         </View>
       </View>
@@ -196,23 +196,21 @@ export default function UsersScreen() {
               />
 
               <Text className="text-gray-600 mt-4 mb-2 font-semibold">
-                Email
+                Teléfono
               </Text>
               <Controller
                 control={control}
                 rules={{
-                  required: "El email es obligatorio",
-                  pattern: { value: /^\S+@\S+$/i, message: "Email inválido" },
+                  required: "El teléfono es obligatorio",
                 }}
-                name="email"
+                name="phone"
                 render={({ field: { onChange, onBlur, value } }) => (
                   <TextInput
                     className={`bg-gray-50 p-4 rounded-xl mb-1 text-gray-800 border ${
-                      errors.email ? "border-red-500" : "border-gray-100"
+                      errors.phone ? "border-red-500" : "border-gray-100"
                     }`}
-                    placeholder="juan.perez@email.com"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
+                    placeholder="Ej: 8888-8888"
+                    keyboardType="phone-pad"
                     onBlur={onBlur}
                     onChangeText={onChange}
                     value={value}

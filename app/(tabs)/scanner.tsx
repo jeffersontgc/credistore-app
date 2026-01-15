@@ -455,7 +455,7 @@ function UserSelector({
         <Search color="#6B7280" size={20} />
         <TextInput
           className="flex-1 h-12 ml-2 text-gray-800 font-medium"
-          placeholder="Nombre del cliente..."
+          placeholder="Buscar clientes..."
           value={search}
           onChangeText={(text) => {
             setSearch(text);
@@ -482,7 +482,7 @@ function UserSelector({
                   <Text className="text-gray-800 font-bold">
                     {u.firstname} {u.lastname}
                   </Text>
-                  <Text className="text-gray-400 text-xs">{u.email}</Text>
+                  <Text className="text-gray-400 text-xs">{u.phone}</Text>
                 </TouchableOpacity>
               ))
             ) : (
