@@ -13,7 +13,11 @@
       "url": "https://u.expo.dev/2f5924ca-1366-47c8-84ff-7142aed4637c"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.jeffersonquezadadev.credistoreapp",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {

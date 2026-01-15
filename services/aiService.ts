@@ -36,13 +36,12 @@ const navigateApp = (args: { screen: string }) => {
       targetRoute = "/(tabs)";
       screenName = "Inicio";
       break;
-    case "debts":
-    case "deudas":
-    case "fiados":
-      // Assuming debts is under users or has its own tab, based on user's layout usually users handles debts or there is a specific route.
-      // Looking at previous context: route="/(tabs)/debts" was used in ActionCard in index.tsx
-      targetRoute = "/(tabs)/debts";
-      screenName = "Fiados";
+    case "settings":
+    case "configuracion":
+    case "configuración":
+    case "ajustes":
+      targetRoute = "/(tabs)/settings";
+      screenName = "Configuración";
       break;
     default:
       return { message: "Pantalla no encontrada." };

@@ -4,9 +4,9 @@ import {
   Home,
   Package,
   Scan,
-  CreditCard,
   BarChart3,
   Users,
+  Settings as SettingsIcon,
 } from "lucide-react-native";
 import { Colors } from "@/constants/Colors";
 
@@ -33,20 +33,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Package color={color} size={24} />,
         }}
       />
-      <Tabs.Screen
-        name="scanner"
-        options={{
-          title: "Vender",
-          tabBarIcon: ({ color }) => <Scan color={color} size={24} />,
-        }}
-      />
-      <Tabs.Screen
-        name="debts"
-        options={{
-          title: "Fiados",
-          tabBarIcon: ({ color }) => <CreditCard color={color} size={24} />,
-        }}
-      />
+
       <Tabs.Screen
         name="reports"
         options={{
@@ -55,10 +42,24 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="scanner"
+        options={{
+          title: "Vender",
+          tabBarIcon: ({ color }) => <Scan color={color} size={24} />,
+        }}
+      />
+      <Tabs.Screen
         name="users"
         options={{
           title: "Clientes",
           tabBarIcon: ({ color }) => <Users color={color} size={24} />,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Configuración",
+          tabBarIcon: ({ color }) => <SettingsIcon color={color} size={24} />,
         }}
       />
     </Tabs>

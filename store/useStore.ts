@@ -97,6 +97,9 @@ interface AppState {
   // Actions - Debts
   updateDebtStatus: (uuid: string, status: DebtStatus) => void;
 
+  // Actions - Data Management
+  importData: (data: Partial<AppState>) => void;
+
   // Helpers
   clearAllData: () => void;
 }
@@ -259,6 +262,15 @@ export const useStore = create<AppState>()(
             }
           })
         );
+      },
+
+      importData: (data) => {
+        set((state) => ({
+          products: data.products || state.products,
+          users: data.users || state.users,
+          sales: data.sales || state.sales,
+          debts: data.debts || state.debts,
+        }));
       },
 
       clearAllData: () =>
