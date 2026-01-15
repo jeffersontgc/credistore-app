@@ -112,3 +112,28 @@ export const CREATE_PRODUCT = gql`
     }
   }
 `;
+
+export const GET_USERS = gql`
+  query GetUsers {
+    users {
+      uuid
+      firstname
+      lastname
+      email
+    }
+  }
+`;
+
+export const CREATE_DEBT = gql`
+  mutation CreateDebt($input: CreateDebtInput!) {
+    createDebt(createDebtInput: $input) {
+      uuid
+      amount
+      status
+      user {
+        firstname
+        lastname
+      }
+    }
+  }
+`;

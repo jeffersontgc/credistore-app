@@ -152,3 +152,29 @@ export interface CreateProductMutation {
 export interface CreateProductMutationVariables {
   input: CreateProductInput;
 }
+
+export interface CreateDebtInput {
+  user_uuid: string;
+  dueDate: string;
+  products: { product_uuid: string; quantity: number }[];
+}
+
+export interface CreateDebtMutation {
+  createDebt: {
+    uuid: string;
+    amount: number;
+    status: string;
+    user: {
+      firstname: string;
+      lastname: string;
+    };
+  };
+}
+
+export interface CreateDebtMutationVariables {
+  input: CreateDebtInput;
+}
+
+export interface GetUsersQuery {
+  users: User[];
+}

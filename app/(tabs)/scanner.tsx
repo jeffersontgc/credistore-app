@@ -10,7 +10,9 @@ import {
   ActivityIndicator,
   TextInput,
   ScrollView,
+  Platform,
 } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useMutation, useApolloClient, useQuery } from "@apollo/client/react";
 import useDebounce from "@/hooks/useDebounce";
@@ -18,6 +20,8 @@ import {
   GET_PRODUCT_BY_BARCODE,
   CREATE_SALE,
   GET_PRODUCTS,
+  GET_USERS,
+  CREATE_DEBT,
 } from "@/lib/queries";
 import {
   GetProductByBarcodeQuery,
@@ -25,8 +29,12 @@ import {
   CreateSaleMutation,
   CreateSaleMutationVariables,
   Product,
+  User,
   GetProductsQuery,
   GetProductsQueryVariables,
+  GetUsersQuery,
+  CreateDebtMutation,
+  CreateDebtMutationVariables,
 } from "@/types/graphql";
 import {
   Trash2,
@@ -39,6 +47,7 @@ import {
   Minus,
   Scan,
   Keyboard,
+  Calendar,
 } from "lucide-react-native";
 import { Colors } from "@/constants/Colors";
 
@@ -58,6 +67,10 @@ export default function ScannerScreen() {
   const [manualSearch, setManualSearch] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [manualQuantity, setManualQuantity] = useState(1);
+  const [isDebtModalOpen, setIsDebtModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [dueDate, setDueDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Removed useLazyQuery in favor of client.query for imperative fetching
 
@@ -111,6 +124,24 @@ export default function ScannerScreen() {
     },
     onError: (err) => {
       Alert.alert("Error", err.message);
+    },
+  });
+
+  const [createDebt, { loading: processingDebt }] = useMutation<
+    CreateDebtMutation,
+    CreateDebtMutationVariables
+  >(CREATE_DEBT, {
+    onCompleted: (data) => {
+      Alert.alert(
+        "Éxito",
+        `Fiado registrado para ${data.createDebt.user.firstname}. Monto: C$ ${data.createDebt.amount}`
+      );
+      setCart([]);
+      setIsDebtModalOpen(false);
+      setIsCheckoutOpen(false);
+    },
+    onError: (err) => {
+      Alert.alert("Error al registrar fiado", err.message);
     },
   });
 
@@ -169,10 +200,7 @@ export default function ScannerScreen() {
 
   const handleCheckout = async (type: "CASH" | "CREDIT") => {
     if (type === "CREDIT") {
-      Alert.alert(
-        "Pendiente",
-        "Módulo de Fiado en desarrollo. Usar módulo de Fiados por ahora."
-      );
+      setIsDebtModalOpen(true);
       return;
     }
 
@@ -182,6 +210,28 @@ export default function ScannerScreen() {
     }));
 
     await createSale({ variables: { input: { items } } });
+  };
+
+  const handleDebtSubmit = async () => {
+    if (!selectedUser) {
+      Alert.alert("Error", "Debes seleccionar un cliente");
+      return;
+    }
+
+    const products = cart.map((item) => ({
+      product_uuid: item.product.uuid,
+      quantity: item.quantity,
+    }));
+
+    await createDebt({
+      variables: {
+        input: {
+          user_uuid: selectedUser.uuid,
+          dueDate: dueDate.toISOString(),
+          products,
+        },
+      },
+    });
   };
 
   return (
@@ -363,6 +413,165 @@ export default function ScannerScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Debt (Fiado) Modal */}
+      <Modal visible={isDebtModalOpen} transparent animationType="slide">
+        <View className="flex-1 justify-end bg-black/50">
+          <View className="bg-white rounded-t-3xl p-6 h-[80%]">
+            <View className="flex-row justify-between items-center mb-6">
+              <Text className="text-2xl font-bold text-gray-800">
+                Registrar Fiado
+              </Text>
+              <TouchableOpacity onPress={() => setIsDebtModalOpen(false)}>
+                <X color="gray" size={24} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView className="flex-1" keyboardShouldPersistTaps="handled">
+              <Text className="text-gray-600 font-bold mb-2">
+                Seleccionar Cliente
+              </Text>
+              <UserSelector
+                onSelect={setSelectedUser}
+                selectedUser={selectedUser}
+              />
+
+              <View className="mt-8">
+                <Text className="text-gray-600 font-bold mb-2">
+                  Fecha a Pagar
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setShowDatePicker(true)}
+                  className="bg-gray-100 p-4 rounded-2xl flex-row justify-between items-center"
+                >
+                  <Text className="text-gray-800 font-medium">
+                    {dueDate.toLocaleDateString("es-ES", {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </Text>
+                  <Calendar size={20} color={Colors.primary} />
+                </TouchableOpacity>
+
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={dueDate}
+                    mode="date"
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    onChange={(event, date) => {
+                      setShowDatePicker(Platform.OS === "ios");
+                      if (date) setDueDate(date);
+                    }}
+                    minimumDate={new Date()}
+                  />
+                )}
+              </View>
+
+              <View className="mt-8 bg-orange-50 p-4 rounded-2xl border border-orange-100">
+                <Text className="text-orange-800 font-bold">
+                  Resumen de Cuenta
+                </Text>
+                <View className="flex-row justify-between mt-2">
+                  <Text className="text-orange-600">Total a fiar:</Text>
+                  <Text className="text-orange-800 font-black text-xl">
+                    C$ {total}
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                onPress={handleDebtSubmit}
+                disabled={processingDebt || !selectedUser}
+                className={`bg-indigo-600 mt-8 py-5 rounded-2xl items-center shadow-lg ${
+                  processingDebt || !selectedUser ? "opacity-50" : ""
+                }`}
+              >
+                {processingDebt ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text className="text-white font-black text-lg">
+                    Confirmar Fiado
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+function UserSelector({
+  onSelect,
+  selectedUser,
+}: {
+  onSelect: (u: User) => void;
+  selectedUser: User | null;
+}) {
+  const [search, setSearch] = useState("");
+  const [isVisible, setIsVisible] = useState(false);
+  const { data, loading } = useQuery<GetUsersQuery>(GET_USERS);
+
+  const users = data?.users || [];
+  const filteredUsers = users.filter((u) =>
+    `${u.firstname} ${u.lastname}`.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <View className="relative z-50">
+      <View className="flex-row items-center bg-gray-100 rounded-2xl px-4 py-1 border border-gray-200">
+        <Search color="#6B7280" size={20} />
+        <TextInput
+          className="flex-1 h-12 ml-2 text-gray-800 font-medium"
+          placeholder="Nombre del cliente..."
+          value={search}
+          onChangeText={(text) => {
+            setSearch(text);
+            setIsVisible(true);
+          }}
+          onFocus={() => setIsVisible(true)}
+        />
+      </View>
+
+      {isVisible && search.length > 0 && (
+        <View className="absolute top-14 left-0 right-0 bg-white rounded-2xl shadow-2xl border border-gray-100 max-h-48 overflow-hidden z-50">
+          <ScrollView keyboardShouldPersistTaps="handled">
+            {loading ? (
+              <ActivityIndicator className="p-4" />
+            ) : filteredUsers.length > 0 ? (
+              filteredUsers.map((u) => (
+                <TouchableOpacity
+                  key={u.uuid}
+                  onPress={() => {
+                    onSelect(u);
+                    setSearch(`${u.firstname} ${u.lastname}`);
+                    setIsVisible(false);
+                  }}
+                  className="p-4 border-b border-gray-50 active:bg-indigo-50"
+                >
+                  <Text className="text-gray-800 font-bold">
+                    {u.firstname} {u.lastname}
+                  </Text>
+                  <Text className="text-gray-400 text-xs">{u.email}</Text>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <Text className="p-4 text-gray-400 italic">No encontrado</Text>
+            )}
+          </ScrollView>
+        </View>
+      )}
+
+      {selectedUser && !isVisible && (
+        <View className="mt-2 bg-green-50 p-3 rounded-xl border border-green-100 flex-row items-center">
+          <View className="w-2 h-2 rounded-full bg-green-500 mr-2" />
+          <Text className="text-green-800 font-medium">
+            Seleccionado: {selectedUser.firstname}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
