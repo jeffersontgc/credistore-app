@@ -28,12 +28,17 @@ import {
 } from "lucide-react-native";
 import { Colors } from "@/constants/Colors";
 
+interface CartItem {
+  product: Product;
+  quantity: number;
+}
+
 export default function ScannerScreen() {
   const client = useApolloClient();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [searching, setSearching] = useState(false);
-  const [cart, setCart] = useState<any[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
   // Removed useLazyQuery in favor of client.query for imperative fetching

@@ -5,14 +5,17 @@ import { GET_DEBTS } from "@/lib/queries";
 import { GetDebtsQuery, GetDebtsQueryVariables } from "@/types/graphql";
 import { Search, User } from "lucide-react-native";
 import { Colors } from "@/constants/Colors";
+import useDebounce from "@/hooks/useDebounce";
 
 export default function DebtsScreen() {
   const [search, setSearch] = useState("");
+  const searchDebounce = useDebounce(search, 500);
+
   const { data, loading, refetch } = useQuery<
     GetDebtsQuery,
     GetDebtsQueryVariables
   >(GET_DEBTS, {
-    variables: { search, page: 1, limit: 20 },
+    variables: { search: searchDebounce, page: 1, limit: 20 },
   });
 
   const debts = data?.findAllDebts?.data || [];
@@ -56,7 +59,6 @@ export default function DebtsScreen() {
           placeholder="Buscar deudor..."
           value={search}
           onChangeText={setSearch}
-          onEndEditing={() => refetch({ search })}
         />
       </View>
 

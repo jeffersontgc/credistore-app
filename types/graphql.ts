@@ -1,9 +1,17 @@
+export enum ProductType {
+  GRANOS_BASICOS = "granos_basicos",
+  SNACKS = "snacks",
+  BEBIDAS = "bebidas",
+  LACTEOS = "lacteos",
+}
+
 export interface Product {
   uuid: string;
   name: string;
   price: number;
   stock: number;
   min_stock: number;
+  type: ProductType;
   barcodes?: { barcode: string }[];
 }
 
@@ -102,4 +110,21 @@ export interface LoginMutation {
 export interface LoginMutationVariables {
   email?: string;
   password?: string;
+}
+export interface CreateProductInput {
+  name: string;
+  barcode?: string;
+  price: number;
+  cost_price: number;
+  stock: number;
+  min_stock: number;
+  type: ProductType;
+}
+
+export interface CreateProductMutation {
+  createProduct: Product;
+}
+
+export interface CreateProductMutationVariables {
+  input: CreateProductInput;
 }

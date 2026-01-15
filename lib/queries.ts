@@ -68,3 +68,16 @@ export const GET_REPORTS_DAILY = gql`
     }
   }
 `;
+
+export const CREATE_PRODUCT = gql`
+  mutation CreateProduct($input: CreateProductInput!) {
+    createProduct(createProductInput: $input) {
+      uuid
+      name
+      price
+      stock
+      min_stock
+      type
+    }
+  }
+`;
