@@ -9,10 +9,11 @@ import {
   Modal,
   ActivityIndicator,
   TextInput,
+  ScrollView,
 } from "react-native";
-import { Dropdown } from "react-native-element-dropdown";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useMutation, useApolloClient, useQuery } from "@apollo/client/react";
+import useDebounce from "@/hooks/useDebounce";
 import {
   GET_PRODUCT_BY_BARCODE,
   CREATE_SALE,
@@ -372,90 +373,151 @@ function ManualProductSelector({
   onSelect: (p: Product, q: number) => void;
 }) {
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 500);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [isListVisible, setIsListVisible] = useState(false);
 
   const { data, loading } = useQuery<
     GetProductsQuery,
     GetProductsQueryVariables
   >(GET_PRODUCTS, {
-    variables: { search, page: 1, limit: 10 },
+    variables: { search: debouncedSearch, page: 1, limit: 10 },
+    skip: !debouncedSearch && !isListVisible,
   });
 
   const products = data?.findAllProducts?.data || [];
 
   return (
-    <View className="flex-1 bg-white p-6">
-      <Text className="text-gray-800 font-bold text-lg mb-4">
-        Selección Manual
-      </Text>
+    <View className="flex-1 bg-white p-5">
+      <Text className="text-gray-800 font-bold text-xl mb-4">Venta Manual</Text>
 
-      <Dropdown
-        style={{
-          height: 60,
-          backgroundColor: "#F3F4F6",
-          borderRadius: 16,
-          paddingHorizontal: 16,
-        }}
-        placeholderStyle={{ color: "#9CA3AF" }}
-        selectedTextStyle={{ color: "#1F2937", fontWeight: "bold" }}
-        inputSearchStyle={{ height: 40, borderRadius: 8 }}
-        data={products.map((p) => ({ label: p.name, value: p.uuid, raw: p }))}
-        search
-        maxHeight={300}
-        labelField="label"
-        valueField="value"
-        placeholder="Buscar producto..."
-        searchPlaceholder="Escribe el nombre..."
-        onChangeText={(text) => setSearch(text)}
-        onChange={(item) => setSelectedProduct(item.raw)}
-        renderLeftIcon={() => (
-          <Search color="#9CA3AF" size={20} style={{ marginRight: 8 }} />
+      {/* Search Input */}
+      <View className="relative z-10">
+        <View className="flex-row items-center bg-gray-100 rounded-2xl px-4 py-1 border border-gray-200 shadow-sm">
+          <Search color="#6B7280" size={20} />
+          <TextInput
+            className="flex-1 h-12 ml-2 text-gray-800 font-medium"
+            placeholder="Buscar producto..."
+            placeholderTextColor="#9CA3AF"
+            value={search}
+            onChangeText={(text) => {
+              setSearch(text);
+              setIsListVisible(true);
+            }}
+            onFocus={() => setIsListVisible(true)}
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch("")}>
+              <X color="#9CA3AF" size={18} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Search Results Dropdown */}
+        {isListVisible && (search.length > 0 || products.length > 0) && (
+          <View className="absolute top-14 left-0 right-0 bg-white rounded-2xl shadow-2xl border border-gray-100 max-h-64 overflow-hidden z-50">
+            <ScrollView keyboardShouldPersistTaps="handled">
+              {loading ? (
+                <View className="p-4 items-center">
+                  <ActivityIndicator color={Colors.primary} size="small" />
+                </View>
+              ) : products.length > 0 ? (
+                products.map((p) => (
+                  <TouchableOpacity
+                    key={p.uuid}
+                    onPress={() => {
+                      setSelectedProduct(p);
+                      setIsListVisible(false);
+                      setSearch(p.name);
+                    }}
+                    className="p-4 border-b border-gray-50 flex-row justify-between items-center active:bg-indigo-50"
+                  >
+                    <View className="flex-1">
+                      <Text className="text-gray-800 font-bold">{p.name}</Text>
+                      <Text className="text-gray-400 text-xs">
+                        Stock: {p.stock}
+                      </Text>
+                    </View>
+                    <Text className="text-indigo-600 font-bold">
+                      C$ {p.price}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <View className="p-4 items-center">
+                  <Text className="text-gray-400 italic text-sm">
+                    No se encontraron productos
+                  </Text>
+                </View>
+              )}
+            </ScrollView>
+          </View>
         )}
-      />
+      </View>
 
-      {selectedProduct && (
-        <View className="mt-6 bg-indigo-50 p-6 rounded-3xl animate-in">
-          <View className="flex-row justify-between items-center mb-6">
+      {/* Selected Product Card */}
+      {selectedProduct ? (
+        <View className="mt-6 bg-indigo-50 p-6 rounded-3xl border border-indigo-100 shadow-sm animate-in fade-in zoom-in duration-300">
+          <View className="flex-row justify-between items-start mb-6">
             <View className="flex-1">
-              <Text className="text-indigo-800 font-bold text-xl">
+              <Text
+                className="text-indigo-900 font-extrabold text-2xl"
+                numberOfLines={2}
+              >
                 {selectedProduct.name}
               </Text>
-              <Text className="text-indigo-600 font-bold text-lg">
+              <Text className="text-indigo-600 font-bold text-xl mt-1">
                 C$ {selectedProduct.price}
               </Text>
             </View>
+            <TouchableOpacity
+              onPress={() => setSelectedProduct(null)}
+              className="bg-white/50 p-1 rounded-full"
+            >
+              <X color={Colors.primary} size={20} />
+            </TouchableOpacity>
           </View>
 
-          <View className="flex-row items-center justify-between">
-            <Text className="text-gray-600 font-bold">Cantidad</Text>
-            <View className="flex-row items-center bg-white rounded-2xl p-2 shadow-sm">
+          <View className="flex-row items-center justify-between bg-white/40 p-4 rounded-2xl">
+            <Text className="text-indigo-800 font-bold text-lg">Cantidad</Text>
+            <View className="flex-row items-center">
               <TouchableOpacity
                 onPress={() => setQuantity(Math.max(1, quantity - 1))}
-                className="bg-indigo-100 p-2 rounded-xl"
+                className="bg-white w-10 h-10 rounded-xl items-center justify-center shadow-sm"
               >
-                <Minus size={24} color={Colors.primary} />
+                <Minus size={20} color={Colors.primary} />
               </TouchableOpacity>
-              <Text className="mx-6 text-2xl font-bold text-gray-800">
+              <Text className="mx-6 text-2xl font-black text-indigo-950">
                 {quantity}
               </Text>
               <TouchableOpacity
                 onPress={() => setQuantity(quantity + 1)}
-                className="bg-indigo-100 p-2 rounded-xl"
+                className="bg-white w-10 h-10 rounded-xl items-center justify-center shadow-sm"
               >
-                <Plus size={24} color={Colors.primary} />
+                <Plus size={20} color={Colors.primary} />
               </TouchableOpacity>
             </View>
           </View>
 
           <TouchableOpacity
             onPress={() => onSelect(selectedProduct, quantity)}
-            className="bg-indigo-600 mt-8 py-4 rounded-2xl items-center shadow-lg"
+            className="bg-indigo-600 mt-8 py-5 rounded-2xl items-center shadow-lg shadow-indigo-200 active:scale-[0.98]"
           >
-            <Text className="text-white font-bold text-lg">
-              Agregar al Carrito
-            </Text>
+            <View className="flex-row items-center">
+              <Plus color="white" size={20} style={{ marginRight: 8 }} />
+              <Text className="text-white font-black text-lg">
+                Agregar al Carrito
+              </Text>
+            </View>
           </TouchableOpacity>
+        </View>
+      ) : (
+        <View className="mt-10 items-center opacity-30">
+          <ShoppingCart size={80} color="#6B7280" />
+          <Text className="text-gray-500 font-bold mt-4 text-center">
+            Busca un producto para{"\n"}comenzar la venta manual
+          </Text>
         </View>
       )}
     </View>
