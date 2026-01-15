@@ -11,7 +11,8 @@
     "lint": "expo lint",
     "build:android": "eas build -p android --profile preview",
     "build:ios": "eas build -p ios --profile preview",
-    "build:prod": "eas build -p all --profile production"
+    "build:prod": "eas build -p all --profile production",
+    "push:prod": "eas update --branch production"
   },
   "dependencies": {
     "@apollo/client": "^4.0.13",

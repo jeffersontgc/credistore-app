@@ -26,5 +26,5 @@ jobs:
       - name: 📦 Install dependencies
         run: npm install
 
-      - name: 🚀 Build on EAS
-        run: eas build -p android --profile preview --non-interactive
+      - name: 🚀 Update on EAS
+        run: eas update --branch production --message "Auto update from GitHub Actions" --non-interactive
