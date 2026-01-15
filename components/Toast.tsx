@@ -52,7 +52,8 @@ export function Toast() {
 
   return (
     <Animated.View
-      entering={SlideInUp.duration(300)} // Changed to SlideInUp with duration (Wait, user said "aparece de abajo arriba" (bottom to top) and he disliked it. SlideInUp comes from bottom. So I want SlideInDown (from top). No, if it's at the top, SlideInUp comes from "below the final position"? No. SlideInUp comes from "below the screen" usually. SlideInDown comes from "above". Let's use SlideInUp but maybe I need negative offset? Actually standard is FadeInDown. Let's try FadeInDown or SlideInUp with custom config? Reanimated: SlideInUp = slides in from bottom edge. SlideInDown = slides in from top edge. User complained "appears from bottom up". So I was using SlideInUp. I should use SlideInDown (from top).
+      entering={SlideInDown.duration(400)}
+      exiting={SlideOutUp.duration(300)}
       style={{
         position: "absolute",
         top: insets.top + 10,
