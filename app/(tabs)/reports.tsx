@@ -1,107 +1,318 @@
-import React from "react";
-import { View, Text, ScrollView, ActivityIndicator } from "react-native";
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  ActivityIndicator,
+  TouchableOpacity,
+  RefreshControl,
+} from "react-native";
 import { useQuery } from "@apollo/client/react";
-import { GET_REPORTS_DAILY } from "@/lib/queries";
+import { GET_REPORTS_DAILY, GET_REPORTS_MONTHLY } from "@/lib/queries";
 import {
   GetDailyReportQuery,
   GetDailyReportQueryVariables,
+  GetMonthlyReportQuery,
+  GetMonthlyReportQueryVariables,
+  DailyReport,
 } from "@/types/graphql";
 import {
   DollarSign,
   CreditCard,
   ShoppingBag,
   BarChart2,
+  Calendar,
+  Layers,
+  TrendingUp,
+  Package,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react-native";
+import { Colors } from "@/constants/Colors";
+
+type TabType = "daily" | "monthly";
 
 export default function ReportsScreen() {
-  const { data, loading, refetch } = useQuery<
-    GetDailyReportQuery,
-    GetDailyReportQueryVariables
-  >(GET_REPORTS_DAILY, {
-    variables: { date: new Date().toISOString() },
-    fetchPolicy: "network-only",
-  });
+  const [activeTab, setActiveTab] = useState<TabType>("daily");
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
-  const report = data?.dailyReports;
+  // Daily Query
+  const {
+    data: dailyData,
+    loading: dailyLoading,
+    refetch: refetchDaily,
+  } = useQuery<GetDailyReportQuery, GetDailyReportQueryVariables>(
+    GET_REPORTS_DAILY,
+    {
+      variables: { date: selectedDate.toISOString().split("T")[0] },
+      skip: activeTab !== "daily",
+      fetchPolicy: "network-only",
+    }
+  );
 
-  const StatCard = ({ title, value, icon: Icon, color, bg }: any) => (
-    <View
-      className={`bg-white p-4 rounded-xl shadow-sm mb-3 flex-row items-center border border-gray-100`}
-    >
-      <View className={`${bg} p-3 rounded-full mr-4`}>
-        <Icon size={24} color={color} />
+  // Monthly Query
+  const {
+    data: monthlyData,
+    loading: monthlyLoading,
+    refetch: refetchMonthly,
+  } = useQuery<GetMonthlyReportQuery, GetMonthlyReportQueryVariables>(
+    GET_REPORTS_MONTHLY,
+    {
+      variables: {
+        year: selectedDate.getFullYear(),
+        month: selectedDate.getMonth() + 1,
+      },
+      skip: activeTab !== "monthly",
+      fetchPolicy: "network-only",
+    }
+  );
+
+  const report =
+    activeTab === "daily"
+      ? dailyData?.dailySalesReportByDate
+      : monthlyData?.monthlySalesReportByYearMonth;
+
+  const loading = activeTab === "daily" ? dailyLoading : monthlyLoading;
+
+  const onRefresh = () => {
+    if (activeTab === "daily") refetchDaily();
+    else refetchMonthly();
+  };
+
+  const changeDate = (amount: number) => {
+    const newDate = new Date(selectedDate);
+    if (activeTab === "daily") {
+      newDate.setDate(newDate.getDate() + amount);
+    } else {
+      newDate.setMonth(newDate.getMonth() + amount);
+    }
+    setSelectedDate(newDate);
+  };
+
+  const StatCard = ({ title, value, icon: Icon, color, bg, subtitle }: any) => (
+    <View className="bg-white p-4 rounded-2xl shadow-sm mb-3 border border-gray-100">
+      <View className="flex-row items-center mb-1">
+        <View className={`${bg} p-2 rounded-lg mr-3`}>
+          <Icon size={18} color={color} />
+        </View>
+        <Text className="text-gray-500 text-sm font-medium">{title}</Text>
       </View>
-      <View>
-        <Text className="text-gray-500 text-sm">{title}</Text>
-        <Text className="text-2xl font-bold text-gray-800">{value}</Text>
-      </View>
+      <Text className="text-2xl font-bold text-gray-800">{value}</Text>
+      {subtitle && (
+        <Text className="text-gray-400 text-xs mt-1">{subtitle}</Text>
+      )}
     </View>
   );
 
+  const TabButton = ({ type, label }: { type: TabType; label: string }) => (
+    <TouchableOpacity
+      onPress={() => setActiveTab(type)}
+      className={`flex-1 py-3 items-center rounded-xl ${
+        activeTab === type ? "bg-white shadow-sm" : ""
+      }`}
+    >
+      <Text
+        className={`font-semibold ${
+          activeTab === type ? "text-indigo-600" : "text-gray-500"
+        }`}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+
   return (
-    <ScrollView className="flex-1 bg-gray-100 p-4">
-      <View className="mb-6">
-        <Text className="text-3xl font-bold text-gray-800">Reporte Diario</Text>
-        <Text className="text-gray-500">{new Date().toLocaleDateString()}</Text>
+    <View className="flex-1 bg-gray-50">
+      <View className="bg-white px-4 pt-4 pb-2 shadow-sm">
+        <View className="flex-row justify-between items-end mb-4 px-1">
+          <View>
+            <Text className="text-2xl font-bold text-gray-800">Reportes</Text>
+            <View className="flex-row items-center">
+              <TouchableOpacity onPress={() => changeDate(-1)} className="pr-2">
+                <ChevronLeft size={16} color={Colors.textLight} />
+              </TouchableOpacity>
+              <Text className="text-gray-500 min-w-[120px] text-center">
+                {activeTab === "daily"
+                  ? selectedDate.toLocaleDateString("es-ES", {
+                      day: "numeric",
+                      month: "long",
+                    })
+                  : selectedDate.toLocaleDateString("es-ES", {
+                      month: "long",
+                      year: "numeric",
+                    })}
+              </Text>
+              <TouchableOpacity onPress={() => changeDate(1)} className="pl-2">
+                <ChevronRight size={16} color={Colors.textLight} />
+              </TouchableOpacity>
+            </View>
+          </View>
+          <TouchableOpacity
+            className="bg-gray-100 p-2 rounded-full"
+            onPress={() => {
+              /* Add DatePicker here in real app */
+            }}
+          >
+            <Calendar size={20} color={Colors.primary} />
+          </TouchableOpacity>
+        </View>
+
+        <View className="bg-gray-100 p-1 rounded-2xl flex-row">
+          <TabButton type="daily" label="Diario" />
+          <TabButton type="monthly" label="Mensual" />
+        </View>
       </View>
 
-      {loading ? (
-        <ActivityIndicator size="large" color="#4F46E5" />
-      ) : (
-        <View>
-          <StatCard
-            title="Ventas Totales"
-            value={`C$ ${report?.totalSales || 0}`}
-            icon={DollarSign}
-            color="white"
-            bg="bg-indigo-600"
-          />
-          <View className="flex-row gap-2">
-            <View className="flex-1">
-              <StatCard
-                title="Contado"
-                value={`C$ ${report?.totalCashSales || 0}`}
-                icon={ShoppingBag}
-                color="#15803d"
-                bg="bg-green-100"
-              />
-            </View>
-            <View className="flex-1">
-              <StatCard
-                title="Fiado"
-                value={`C$ ${report?.totalCreditSales || 0}`}
-                icon={CreditCard}
-                color="#c2410c"
-                bg="bg-orange-100"
-              />
-            </View>
+      <ScrollView
+        className="flex-1 px-4 pt-4"
+        refreshControl={
+          <RefreshControl refreshing={loading} onRefresh={onRefresh} />
+        }
+      >
+        {loading ? (
+          <View className="mt-10 items-center">
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text className="text-gray-400 mt-2">Cargando métricas...</Text>
           </View>
+        ) : !report ? (
+          <View className="mt-10 items-center bg-white p-10 rounded-3xl border border-dashed border-gray-300">
+            <BarChart2 size={48} color="#D1D5DB" />
+            <Text className="text-gray-500 mt-4 text-center">
+              No hay datos registrados para este{" "}
+              {activeTab === "daily" ? "día" : "mes"}.
+            </Text>
+          </View>
+        ) : (
+          <View className="pb-10">
+            {/* Main Sales Metric */}
+            <View className="bg-indigo-600 p-6 rounded-3xl mb-4 shadow-lg shadow-indigo-200">
+              <View className="flex-row justify-between items-start">
+                <View>
+                  <Text className="text-indigo-100 text-sm font-medium">
+                    Ventas Totales
+                  </Text>
+                  <Text className="text-white text-4xl font-bold mt-1">
+                    C$ {report.total_sales.toLocaleString()}
+                  </Text>
+                </View>
+                <View className="bg-white/20 p-3 rounded-2xl">
+                  <TrendingUp size={24} color="white" />
+                </View>
+              </View>
+              <View className="flex-row mt-4 pt-4 border-t border-white/10">
+                <View className="flex-1">
+                  <Text className="text-indigo-200 text-xs">Transacciones</Text>
+                  <Text className="text-white font-bold">
+                    {report.total_transactions}
+                  </Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-indigo-200 text-xs">Promedio</Text>
+                  <Text className="text-white font-bold">
+                    C$ {report.average_sale_amount.toFixed(2)}
+                  </Text>
+                </View>
+              </View>
+            </View>
 
-          <View className="mt-4 bg-white p-6 rounded-xl shadow-sm">
-            <View className="flex-row items-center mb-4">
-              <BarChart2 size={24} color="#4F46E5" />
-              <Text className="ml-2 text-lg font-bold text-gray-800">
-                Resumen de Transacciones
-              </Text>
+            {/* Split Breakdown */}
+            <View className="flex-row gap-3 mb-4">
+              <View className="flex-1">
+                <StatCard
+                  title="Contado"
+                  value={`C$ ${report.total_cash_sales.toLocaleString()}`}
+                  icon={ShoppingBag}
+                  color="#15803d"
+                  bg="bg-green-100"
+                />
+              </View>
+              <View className="flex-1">
+                <StatCard
+                  title="Crédito"
+                  value={`C$ ${report.total_credit_sales.toLocaleString()}`}
+                  icon={CreditCard}
+                  color="#c2410c"
+                  bg="bg-orange-100"
+                />
+              </View>
             </View>
-            <View className="flex-row justify-between border-b border-gray-100 py-3">
-              <Text className="text-gray-500">Total Transacciones</Text>
-              <Text className="font-bold text-gray-800">
-                {report?.totalTransactions || 0}
-              </Text>
+
+            {/* Product Metric */}
+            <StatCard
+              title="Productos Vendidos"
+              value={`${report.total_products_sold} unidades`}
+              icon={Package}
+              color="#4F46E5"
+              bg="bg-indigo-100"
+            />
+
+            {/* Debts Section */}
+            <Text className="text-lg font-bold text-gray-800 mt-4 mb-3 px-1">
+              Estado de Créditos
+            </Text>
+            <View className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100">
+              <View className="flex-row items-center justify-between mb-4 pb-4 border-b border-gray-50">
+                <View className="flex-row items-center">
+                  <View className="bg-gray-100 p-2 rounded-lg mr-3">
+                    <Layers size={20} color="#6B7280" />
+                  </View>
+                  <View>
+                    <Text className="text-gray-800 font-bold">Total Fiado</Text>
+                    <Text className="text-gray-400 text-xs">
+                      Monto acumulado
+                    </Text>
+                  </View>
+                </View>
+                <Text className="text-xl font-bold text-gray-800">
+                  C$ {report.total_active_amount.toLocaleString()}
+                </Text>
+              </View>
+
+              <View className="flex-row gap-4">
+                <View className="flex-1 items-center">
+                  <View className="w-2 h-2 rounded-full bg-blue-500 mb-1" />
+                  <Text className="text-gray-400 text-[10px] uppercase font-bold">
+                    Activos
+                  </Text>
+                  <Text className="text-gray-800 font-bold">
+                    {report.active_debts_count}
+                  </Text>
+                </View>
+                <View className="flex-1 items-center border-x border-gray-50">
+                  <View className="w-2 h-2 rounded-full bg-amber-500 mb-1" />
+                  <Text className="text-gray-400 text-[10px] uppercase font-bold">
+                    Pendientes
+                  </Text>
+                  <Text className="text-gray-800 font-bold">
+                    {report.pending_debts_count}
+                  </Text>
+                </View>
+                <View className="flex-1 items-center">
+                  <View className="w-2 h-2 rounded-full bg-green-500 mb-1" />
+                  <Text className="text-gray-400 text-[10px] uppercase font-bold">
+                    Pagados
+                  </Text>
+                  <Text className="text-gray-800 font-bold">
+                    {report.paid_debts_count + report.settled_debts_count}
+                  </Text>
+                </View>
+              </View>
             </View>
-            <View className="flex-row justify-between py-3">
-              <Text className="text-gray-500">Ticket Promedio</Text>
-              <Text className="font-bold text-gray-800">
-                C${" "}
-                {report?.totalTransactions
-                  ? (report.totalSales / report.totalTransactions).toFixed(2)
-                  : 0}
-              </Text>
-            </View>
+
+            {activeTab === "monthly" && (
+              <View className="mt-4 bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
+                <Text className="text-indigo-800 font-bold text-sm">
+                  Promedio Mensual
+                </Text>
+                <Text className="text-indigo-600 text-xs mt-1">
+                  En promedio se vende C${" "}
+                  {(report as any).average_daily_sales?.toFixed(2)} por día.
+                </Text>
+              </View>
+            )}
           </View>
-        </View>
-      )}
-    </ScrollView>
+        )}
+      </ScrollView>
+    </View>
   );
 }

@@ -59,12 +59,43 @@ export const GET_DEBTS = gql`
 `;
 
 export const GET_REPORTS_DAILY = gql`
-  query GetDailyReport($date: DateTime!) {
-    dailyReports(args: { date: $date }) {
-      totalSales
-      totalCashSales
-      totalCreditSales
-      totalTransactions
+  query GetDailyReport($date: Date!) {
+    dailySalesReportByDate(date: $date) {
+      total_sales
+      total_cash_sales
+      total_credit_sales
+      total_transactions
+      total_products_sold
+      average_sale_amount
+      active_debts_count
+      pending_debts_count
+      paid_debts_count
+      settled_debts_count
+      total_active_amount
+      total_paid_amount
+    }
+  }
+`;
+
+export const GET_REPORTS_MONTHLY = gql`
+  query GetMonthlyReport($year: Int!, $month: Int!) {
+    monthlySalesReportByYearMonth(year: $year, month: $month) {
+      year
+      month
+      total_sales
+      total_cash_sales
+      total_credit_sales
+      total_transactions
+      total_products_sold
+      average_sale_amount
+      active_debts_count
+      pending_debts_count
+      paid_debts_count
+      settled_debts_count
+      total_active_amount
+      total_paid_amount
+      total_days
+      average_daily_sales
     }
   }
 `;

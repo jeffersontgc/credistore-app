@@ -32,10 +32,25 @@ export interface Debt {
 }
 
 export interface DailyReport {
-  totalSales: number;
-  totalCashSales: number;
-  totalCreditSales: number;
-  totalTransactions: number;
+  total_sales: number;
+  total_cash_sales: number;
+  total_credit_sales: number;
+  total_transactions: number;
+  total_products_sold: number;
+  average_sale_amount: number;
+  active_debts_count: number;
+  pending_debts_count: number;
+  paid_debts_count: number;
+  settled_debts_count: number;
+  total_active_amount: number;
+  total_paid_amount: number;
+}
+
+export interface MonthlyReport extends DailyReport {
+  year: number;
+  month: number;
+  total_days: number;
+  average_daily_sales: number;
 }
 
 // Queries
@@ -76,11 +91,20 @@ export interface GetDebtsQueryVariables {
 }
 
 export interface GetDailyReportQuery {
-  dailyReports: DailyReport;
+  dailySalesReportByDate: DailyReport | null;
 }
 
 export interface GetDailyReportQueryVariables {
   date: string;
+}
+
+export interface GetMonthlyReportQuery {
+  monthlySalesReportByYearMonth: MonthlyReport | null;
+}
+
+export interface GetMonthlyReportQueryVariables {
+  year: number;
+  month: number;
 }
 
 // Mutations
