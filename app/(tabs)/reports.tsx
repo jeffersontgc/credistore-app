@@ -6,7 +6,9 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   RefreshControl,
+  Platform,
 } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { useQuery } from "@apollo/client/react";
 import { GET_REPORTS_DAILY, GET_REPORTS_MONTHLY } from "@/lib/queries";
 import {
@@ -35,6 +37,7 @@ type TabType = "daily" | "monthly";
 export default function ReportsScreen() {
   const [activeTab, setActiveTab] = useState<TabType>("daily");
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showPicker, setShowPicker] = useState(false);
 
   // Daily Query
   const {
@@ -87,6 +90,13 @@ export default function ReportsScreen() {
       newDate.setMonth(newDate.getMonth() + amount);
     }
     setSelectedDate(newDate);
+  };
+
+  const handleDateChange = (event: any, date?: Date) => {
+    setShowPicker(Platform.OS === "ios");
+    if (date) {
+      setSelectedDate(date);
+    }
   };
 
   const StatCard = ({ title, value, icon: Icon, color, bg, subtitle }: any) => (
@@ -149,13 +159,21 @@ export default function ReportsScreen() {
           </View>
           <TouchableOpacity
             className="bg-gray-100 p-2 rounded-full"
-            onPress={() => {
-              /* Add DatePicker here in real app */
-            }}
+            onPress={() => setShowPicker(true)}
           >
             <Calendar size={20} color={Colors.primary} />
           </TouchableOpacity>
         </View>
+
+        {showPicker && (
+          <DateTimePicker
+            value={selectedDate}
+            mode="date"
+            display={Platform.OS === "ios" ? "inline" : "default"}
+            onChange={handleDateChange}
+            maximumDate={new Date()}
+          />
+        )}
 
         <View className="bg-gray-100 p-1 rounded-2xl flex-row">
           <TabButton type="daily" label="Diario" />
