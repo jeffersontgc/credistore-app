@@ -8,16 +8,24 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
+  TextInput,
 } from "react-native";
+import { Dropdown } from "react-native-element-dropdown";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { useMutation, useApolloClient } from "@apollo/client/react";
-import { GET_PRODUCT_BY_BARCODE, CREATE_SALE } from "@/lib/queries";
+import { useMutation, useApolloClient, useQuery } from "@apollo/client/react";
+import {
+  GET_PRODUCT_BY_BARCODE,
+  CREATE_SALE,
+  GET_PRODUCTS,
+} from "@/lib/queries";
 import {
   GetProductByBarcodeQuery,
   GetProductByBarcodeQueryVariables,
   CreateSaleMutation,
   CreateSaleMutationVariables,
   Product,
+  GetProductsQuery,
+  GetProductsQueryVariables,
 } from "@/types/graphql";
 import {
   Trash2,
@@ -25,6 +33,11 @@ import {
   X,
   CreditCard,
   DollarSign,
+  Search,
+  Plus,
+  Minus,
+  Scan,
+  Keyboard,
 } from "lucide-react-native";
 import { Colors } from "@/constants/Colors";
 
@@ -40,6 +53,10 @@ export default function ScannerScreen() {
   const [searching, setSearching] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"scanner" | "manual">("scanner");
+  const [manualSearch, setManualSearch] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [manualQuantity, setManualQuantity] = useState(1);
 
   // Removed useLazyQuery in favor of client.query for imperative fetching
 
@@ -116,18 +133,28 @@ export default function ScannerScreen() {
     );
   }
 
-  const addToCart = (product: Product) => {
+  const addToCart = (product: Product, quantity: number = 1) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.product.uuid === product.uuid);
       if (existing) {
         return prev.map((item) =>
           item.product.uuid === product.uuid
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: item.quantity + quantity }
             : item
         );
       }
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, { product, quantity }];
     });
+  };
+
+  const updateQuantity = (uuid: string, delta: number) => {
+    setCart((prev) =>
+      prev.map((item) =>
+        item.product.uuid === uuid
+          ? { ...item, quantity: Math.max(1, item.quantity + delta) }
+          : item
+      )
+    );
   };
 
   const removeFromCart = (uuid: string) => {
@@ -158,31 +185,65 @@ export default function ScannerScreen() {
 
   return (
     <View className="flex-1 bg-black">
-      {/* Camera View (Top Half) */}
-      <View className="h-1/2 overflow-hidden rounded-b-3xl relative">
-        <CameraView
-          style={StyleSheet.absoluteFillObject}
-          facing="back"
-          onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-          barcodeScannerSettings={{
-            barcodeTypes: ["ean13", "ean8", "qr", "upc_a", "code128"],
-          }}
-        />
-        <View className="absolute top-0 left-0 right-0 bottom-0 justify-center items-center">
-          <View className="w-64 h-64 border-2 border-white/50 rounded-lg opacity-50" />
-          {searching && (
-            <ActivityIndicator
-              size="large"
-              color="white"
-              className="absolute"
+      {/* Tab Switcher */}
+      <View className="flex-row bg-gray-900 m-4 rounded-xl p-1 border border-gray-800">
+        <TouchableOpacity
+          onPress={() => setActiveTab("scanner")}
+          className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${
+            activeTab === "scanner" ? "bg-indigo-600" : ""
+          }`}
+        >
+          <Scan size={18} color="white" />
+          <Text className="text-white font-bold ml-2">Escáner</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setActiveTab("manual")}
+          className={`flex-1 flex-row items-center justify-center py-2 rounded-lg ${
+            activeTab === "manual" ? "bg-indigo-600" : ""
+          }`}
+        >
+          <Keyboard size={18} color="white" />
+          <Text className="text-white font-bold ml-2">Manual</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Top View (Scanner or Manual Selection) */}
+      <View className="h-[45%] overflow-hidden rounded-b-3xl relative">
+        {activeTab === "scanner" ? (
+          <>
+            <CameraView
+              style={StyleSheet.absoluteFillObject}
+              facing="back"
+              onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+              barcodeScannerSettings={{
+                barcodeTypes: ["ean13", "ean8", "qr", "upc_a", "code128"],
+              }}
             />
-          )}
-        </View>
-        <View className="absolute bottom-4 self-center bg-black/60 px-4 py-2 rounded-full">
-          <Text className="text-white font-bold">
-            {scanned ? "Procesando..." : "Escanea un código"}
-          </Text>
-        </View>
+            <View className="absolute top-0 left-0 right-0 bottom-0 justify-center items-center">
+              <View className="w-64 h-64 border-2 border-white/50 rounded-lg opacity-50" />
+              {searching && (
+                <ActivityIndicator
+                  size="large"
+                  color="white"
+                  className="absolute"
+                />
+              )}
+            </View>
+            <View className="absolute bottom-4 self-center bg-black/60 px-4 py-2 rounded-full">
+              <Text className="text-white font-bold">
+                {scanned ? "Procesando..." : "Escanea un código"}
+              </Text>
+            </View>
+          </>
+        ) : (
+          <ManualProductSelector
+            onSelect={(p, q) => {
+              addToCart(p, q);
+              setSelectedProduct(null);
+              setManualQuantity(1);
+            }}
+          />
+        )}
       </View>
 
       {/* Cart View (Bottom Half) */}
@@ -210,9 +271,19 @@ export default function ScannerScreen() {
                 </Text>
               </View>
               <View className="flex-row items-center">
-                <Text className="font-bold text-lg mr-4">
-                  C$ {item.product.price * item.quantity}
-                </Text>
+                <View className="flex-row items-center bg-gray-100 rounded-lg mr-4 p-1">
+                  <TouchableOpacity
+                    onPress={() => updateQuantity(item.product.uuid, -1)}
+                  >
+                    <Minus size={20} color={Colors.primary} />
+                  </TouchableOpacity>
+                  <Text className="mx-3 font-bold">{item.quantity}</Text>
+                  <TouchableOpacity
+                    onPress={() => updateQuantity(item.product.uuid, 1)}
+                  >
+                    <Plus size={20} color={Colors.primary} />
+                  </TouchableOpacity>
+                </View>
                 <TouchableOpacity
                   onPress={() => removeFromCart(item.product.uuid)}
                   className="bg-red-100 p-2 rounded-lg"
@@ -291,6 +362,102 @@ export default function ScannerScreen() {
           </View>
         </View>
       </Modal>
+    </View>
+  );
+}
+
+function ManualProductSelector({
+  onSelect,
+}: {
+  onSelect: (p: Product, q: number) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [quantity, setQuantity] = useState(1);
+
+  const { data, loading } = useQuery<
+    GetProductsQuery,
+    GetProductsQueryVariables
+  >(GET_PRODUCTS, {
+    variables: { search, page: 1, limit: 10 },
+  });
+
+  const products = data?.findAllProducts?.data || [];
+
+  return (
+    <View className="flex-1 bg-white p-6">
+      <Text className="text-gray-800 font-bold text-lg mb-4">
+        Selección Manual
+      </Text>
+
+      <Dropdown
+        style={{
+          height: 60,
+          backgroundColor: "#F3F4F6",
+          borderRadius: 16,
+          paddingHorizontal: 16,
+        }}
+        placeholderStyle={{ color: "#9CA3AF" }}
+        selectedTextStyle={{ color: "#1F2937", fontWeight: "bold" }}
+        inputSearchStyle={{ height: 40, borderRadius: 8 }}
+        data={products.map((p) => ({ label: p.name, value: p.uuid, raw: p }))}
+        search
+        maxHeight={300}
+        labelField="label"
+        valueField="value"
+        placeholder="Buscar producto..."
+        searchPlaceholder="Escribe el nombre..."
+        onChangeText={(text) => setSearch(text)}
+        onChange={(item) => setSelectedProduct(item.raw)}
+        renderLeftIcon={() => (
+          <Search color="#9CA3AF" size={20} style={{ marginRight: 8 }} />
+        )}
+      />
+
+      {selectedProduct && (
+        <View className="mt-6 bg-indigo-50 p-6 rounded-3xl animate-in">
+          <View className="flex-row justify-between items-center mb-6">
+            <View className="flex-1">
+              <Text className="text-indigo-800 font-bold text-xl">
+                {selectedProduct.name}
+              </Text>
+              <Text className="text-indigo-600 font-bold text-lg">
+                C$ {selectedProduct.price}
+              </Text>
+            </View>
+          </View>
+
+          <View className="flex-row items-center justify-between">
+            <Text className="text-gray-600 font-bold">Cantidad</Text>
+            <View className="flex-row items-center bg-white rounded-2xl p-2 shadow-sm">
+              <TouchableOpacity
+                onPress={() => setQuantity(Math.max(1, quantity - 1))}
+                className="bg-indigo-100 p-2 rounded-xl"
+              >
+                <Minus size={24} color={Colors.primary} />
+              </TouchableOpacity>
+              <Text className="mx-6 text-2xl font-bold text-gray-800">
+                {quantity}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setQuantity(quantity + 1)}
+                className="bg-indigo-100 p-2 rounded-xl"
+              >
+                <Plus size={24} color={Colors.primary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            onPress={() => onSelect(selectedProduct, quantity)}
+            className="bg-indigo-600 mt-8 py-4 rounded-2xl items-center shadow-lg"
+          >
+            <Text className="text-white font-bold text-lg">
+              Agregar al Carrito
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
