@@ -12,6 +12,7 @@ import {
   Platform,
   Alert,
 } from "react-native";
+import { CameraView, useCameraPermissions } from "expo-camera";
 import { useQuery, useMutation } from "@apollo/client/react";
 import { GET_PRODUCTS, CREATE_PRODUCT } from "@/lib/queries";
 import {
@@ -23,7 +24,14 @@ import {
   CreateProductMutationVariables,
   CreateProductInput,
 } from "@/types/graphql";
-import { Search, Plus, AlertCircle, X, Check } from "lucide-react-native";
+import {
+  Search,
+  Plus,
+  AlertCircle,
+  X,
+  Check,
+  Camera,
+} from "lucide-react-native";
 import { Colors } from "@/constants/Colors";
 import useDebounce from "@/hooks/useDebounce";
 import { useForm, Controller } from "react-hook-form";
@@ -32,6 +40,8 @@ export default function ProductsScreen() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [modalVisible, setModalVisible] = useState(false);
+  const [scannerVisible, setScannerVisible] = useState(false);
+  const [permission, requestPermission] = useCameraPermissions();
   const searchDebounce = useDebounce(search, 500);
 
   // Form setup
@@ -39,6 +49,7 @@ export default function ProductsScreen() {
     control,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<CreateProductInput>({
     defaultValues: {
@@ -87,6 +98,25 @@ export default function ProductsScreen() {
         },
       },
     });
+  };
+
+  const handleBarCodeScanned = ({ data }: { data: string }) => {
+    setValue("barcode", data);
+    setScannerVisible(false);
+  };
+
+  const openScanner = async () => {
+    if (!permission?.granted) {
+      const { granted } = await requestPermission();
+      if (!granted) {
+        Alert.alert(
+          "Permiso denegado",
+          "Necesitamos permiso para usar la cámara"
+        );
+        return;
+      }
+    }
+    setScannerVisible(true);
   };
 
   const products = data?.findAllProducts?.data || [];
@@ -243,19 +273,29 @@ export default function ProductsScreen() {
               <Text className="text-gray-600 mb-2 font-semibold">
                 Código de Barras (Opcional)
               </Text>
-              <Controller
-                control={control}
-                name="barcode"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <TextInput
-                    className="bg-gray-100 p-4 rounded-xl mb-4 text-gray-800"
-                    placeholder="Escanea o escribe el código"
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    value={value}
+              <View className="flex-row items-center gap-2 mb-4">
+                <View className="flex-1">
+                  <Controller
+                    control={control}
+                    name="barcode"
+                    render={({ field: { onChange, onBlur, value } }) => (
+                      <TextInput
+                        className="bg-gray-100 p-4 rounded-xl text-gray-800"
+                        placeholder="Escanea o escribe el código"
+                        onBlur={onBlur}
+                        onChangeText={onChange}
+                        value={value}
+                      />
+                    )}
                   />
-                )}
-              />
+                </View>
+                <TouchableOpacity
+                  onPress={openScanner}
+                  className="bg-indigo-100 p-4 rounded-xl items-center justify-center"
+                >
+                  <Camera color={Colors.primary} size={24} />
+                </TouchableOpacity>
+              </View>
 
               <View className="flex-row gap-4 mb-4">
                 <View className="flex-1">
@@ -403,6 +443,64 @@ export default function ProductsScreen() {
           </KeyboardAvoidingView>
         </View>
       </Modal>
+
+      <ScannerModal
+        visible={scannerVisible}
+        onClose={() => setScannerVisible(false)}
+        onScanned={handleBarCodeScanned}
+      />
     </View>
   );
 }
+
+function ScannerModal({
+  visible,
+  onClose,
+  onScanned,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onScanned: (data: { data: string }) => void;
+}) {
+  return (
+    <Modal visible={visible} animationType="slide" transparent={false}>
+      <View className="flex-1 bg-black">
+        <CameraView
+          style={StyleSheet.absoluteFillObject}
+          facing="back"
+          onBarcodeScanned={onScanned}
+          barcodeScannerSettings={{
+            barcodeTypes: ["ean13", "ean8", "qr", "upc_a", "code128"],
+          }}
+        />
+        <View className="flex-1 justify-between p-6">
+          <TouchableOpacity
+            onPress={onClose}
+            className="self-end bg-black/50 p-2 rounded-full mt-4"
+          >
+            <X color="white" size={30} />
+          </TouchableOpacity>
+
+          <View className="items-center mb-10">
+            <View className="w-64 h-64 border-2 border-white/50 rounded-lg justify-center items-center">
+              <View className="w-48 h-0.5 bg-red-500 opacity-50" />
+            </View>
+            <Text className="text-white font-bold mt-4 bg-black/50 px-4 py-2 rounded-full">
+              Escanea un código de barras
+            </Text>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const StyleSheet = {
+  absoluteFillObject: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  } as const,
+};
