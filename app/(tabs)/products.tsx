@@ -10,8 +10,10 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  StyleSheet,
   Alert,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useStore, ProductType, Product } from "@/store/useStore";
 import {
@@ -139,13 +141,14 @@ export default function ProductsScreen() {
   );
 
   return (
-    <View className="flex-1 bg-gray-100 p-4">
+    <SafeAreaView style={styles.container}>
       {/* Search Bar */}
-      <View className="flex-row items-center bg-white p-3 rounded-xl mb-4 shadow-sm border border-gray-200">
-        <Search color={Colors.textLight} size={20} />
+      <View className="flex-row items-center bg-white p-3 rounded-2xl mb-4 shadow-sm border border-gray-100 h-14">
+        <Search color={Colors.primary} size={20} />
         <TextInput
-          className="flex-1 ml-2 text-base text-gray-800"
+          className="flex-1 ml-3 text-base text-gray-800 font-medium"
           placeholder="Buscar productos..."
+          placeholderTextColor="#9ca3af"
           value={search}
           onChangeText={(text) => {
             setSearch(text);
@@ -408,7 +411,7 @@ export default function ProductsScreen() {
         onClose={() => setScannerVisible(false)}
         onScanned={handleBarCodeScanned}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -454,7 +457,12 @@ function ScannerModal({
   );
 }
 
-const StyleSheet = {
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    flexDirection: "column",
+  },
   absoluteFillObject: {
     position: "absolute",
     left: 0,
@@ -462,4 +470,4 @@ const StyleSheet = {
     top: 0,
     bottom: 0,
   } as const,
-};
+});

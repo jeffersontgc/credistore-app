@@ -10,7 +10,9 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  StyleSheet,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useStore, User } from "@/store/useStore";
 import {
   Search,
@@ -100,13 +102,14 @@ export default function UsersScreen() {
   );
 
   return (
-    <View className="flex-1 bg-gray-50 p-4">
+    <SafeAreaView style={styles.container} className="p-4">
       {/* Search Bar */}
-      <View className="flex-row items-center bg-white p-3 rounded-xl mb-4 shadow-sm border border-gray-200">
-        <Search color={Colors.textLight} size={20} />
+      <View className="flex-row items-center bg-white p-3 rounded-2xl mb-4 shadow-sm border border-gray-100 h-14">
+        <Search color={Colors.primary} size={20} />
         <TextInput
-          className="flex-1 ml-2 text-base text-gray-800"
+          className="flex-1 ml-3 text-base text-gray-800 font-medium"
           placeholder="Buscar clientes..."
+          placeholderTextColor="#9ca3af"
           value={search}
           onChangeText={setSearch}
         />
@@ -231,6 +234,14 @@ export default function UsersScreen() {
           </KeyboardAvoidingView>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    flexDirection: "column",
+  },
+});

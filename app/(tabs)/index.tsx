@@ -1,5 +1,12 @@
 import React, { useMemo } from "react";
-import { View, Text, ScrollView, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Scan, Plus, CreditCard, DollarSign } from "lucide-react-native";
 import { useStore } from "@/store/useStore";
@@ -33,60 +40,72 @@ export default function DashboardScreen() {
   );
 
   return (
-    <ScrollView className="flex-1 bg-gray-100 p-4">
-      <View className="mb-6">
-        <Text className="text-gray-500 text-lg">Hola, Vendedor</Text>
-        <Text className="text-3xl font-bold text-gray-800">
-          Resumen del Día
+    <SafeAreaView style={styles.container}>
+      <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false}>
+        <View className="mb-6 px-1">
+          <Text className="text-gray-400 font-medium text-lg">
+            Hola, Vendedor
+          </Text>
+          <Text className="text-3xl font-black text-indigo-950">
+            Resumen del Día
+          </Text>
+        </View>
+
+        <View className="flex-row justify-between mb-4 bg-white p-4 rounded-2xl shadow-sm">
+          <View className="items-center flex-1 border-r border-gray-100">
+            <Text className="text-gray-400 text-sm">Ventas Hoy</Text>
+            <Text className="text-2xl font-bold text-green-600">
+              C$ {metrics.todaySales.toLocaleString()}
+            </Text>
+          </View>
+          <View className="items-center flex-1">
+            <Text className="text-gray-400 text-sm">Créditos Hoy</Text>
+            <Text className="text-2xl font-bold text-orange-500">
+              C$ {metrics.todayCredits.toLocaleString()}
+            </Text>
+          </View>
+        </View>
+
+        <Text className="text-xl font-bold text-gray-800 mb-3">
+          Acciones Rápidas
         </Text>
-      </View>
-
-      <View className="flex-row justify-between mb-4 bg-white p-4 rounded-2xl shadow-sm">
-        <View className="items-center flex-1 border-r border-gray-100">
-          <Text className="text-gray-400 text-sm">Ventas Hoy</Text>
-          <Text className="text-2xl font-bold text-green-600">
-            C$ {metrics.todaySales.toLocaleString()}
-          </Text>
+        <View className="flex-row">
+          <ActionCard
+            title="Nueva Venta"
+            icon={Scan}
+            color="bg-indigo-600"
+            route="/(tabs)/scanner"
+          />
+          <ActionCard
+            title="Nuevo Fiado"
+            icon={CreditCard}
+            color="bg-orange-500"
+            route="/(tabs)/debts"
+          />
         </View>
-        <View className="items-center flex-1">
-          <Text className="text-gray-400 text-sm">Créditos Hoy</Text>
-          <Text className="text-2xl font-bold text-orange-500">
-            C$ {metrics.todayCredits.toLocaleString()}
-          </Text>
+        <View className="flex-row">
+          <ActionCard
+            title="Productos"
+            icon={Plus}
+            color="bg-blue-500"
+            route="/(tabs)/products"
+          />
+          <ActionCard
+            title="Caja"
+            icon={DollarSign}
+            color="bg-green-600"
+            route="/(tabs)/reports"
+          />
         </View>
-      </View>
-
-      <Text className="text-xl font-bold text-gray-800 mb-3">
-        Acciones Rápidas
-      </Text>
-      <View className="flex-row">
-        <ActionCard
-          title="Nueva Venta"
-          icon={Scan}
-          color="bg-indigo-600"
-          route="/(tabs)/scanner"
-        />
-        <ActionCard
-          title="Nuevo Fiado"
-          icon={CreditCard}
-          color="bg-orange-500"
-          route="/(tabs)/debts"
-        />
-      </View>
-      <View className="flex-row">
-        <ActionCard
-          title="Productos"
-          icon={Plus}
-          color="bg-blue-500"
-          route="/(tabs)/products"
-        />
-        <ActionCard
-          title="Caja"
-          icon={DollarSign}
-          color="bg-green-600"
-          route="/(tabs)/reports"
-        />
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    flexDirection: "column",
+  },
+});

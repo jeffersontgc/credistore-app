@@ -4,9 +4,11 @@ import {
   Text,
   FlatList,
   TextInput,
-  TouchableOpacity,
   Alert,
+  StyleSheet,
+  TouchableOpacity,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useStore, DebtStatus, Debt } from "@/store/useStore";
 import { Search, User as UserIcon, CheckCircle } from "lucide-react-native";
 import { Colors } from "@/constants/Colors";
@@ -86,12 +88,13 @@ export default function DebtsScreen() {
   );
 
   return (
-    <View className="flex-1 bg-gray-100 p-4">
-      <View className="flex-row items-center bg-white p-3 rounded-xl mb-4 shadow-sm border border-gray-200">
-        <Search color={Colors.textLight} size={20} />
+    <SafeAreaView style={styles.container}>
+      <View className="flex-row items-center bg-white p-3 rounded-2xl mb-4 shadow-sm border border-gray-100 h-14">
+        <Search color={Colors.primary} size={20} />
         <TextInput
-          className="flex-1 ml-2 text-base text-gray-800"
+          className="flex-1 ml-3 text-base text-gray-800 font-medium"
           placeholder="Buscar deudor..."
+          placeholderTextColor="#9ca3af"
           value={search}
           onChangeText={setSearch}
         />
@@ -102,6 +105,14 @@ export default function DebtsScreen() {
         renderItem={renderItem}
         keyExtractor={(item) => item.uuid}
       />
-    </View>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    flexDirection: "column",
+  },
+});

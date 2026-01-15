@@ -6,8 +6,10 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   RefreshControl,
+  StyleSheet,
   Platform,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useStore, DebtStatus } from "@/store/useStore";
 import {
@@ -191,51 +193,59 @@ export default function ReportsScreen() {
 
   return (
     <View className="flex-1 bg-gray-50">
-      <View className="bg-white px-4 pt-4 pb-2 shadow-sm">
-        <View className="flex-row justify-between items-end mb-4 px-1">
-          <View>
-            <View className="flex-row items-center">
-              <TouchableOpacity onPress={() => changeDate(-1)} className="pr-2">
-                <ChevronLeft size={16} color={Colors.textLight} />
-              </TouchableOpacity>
-              <Text className="text-gray-500 min-w-[120px] text-center">
-                {activeTab === "daily"
-                  ? selectedDate.toLocaleDateString("es-ES", {
-                      day: "numeric",
-                      month: "long",
-                    })
-                  : selectedDate.toLocaleDateString("es-ES", {
-                      month: "long",
-                      year: "numeric",
-                    })}
-              </Text>
-              <TouchableOpacity onPress={() => changeDate(1)} className="pl-2">
-                <ChevronRight size={16} color={Colors.textLight} />
-              </TouchableOpacity>
+      <View className="bg-white shadow-sm">
+        <SafeAreaView style={styles.container}>
+          <View className="flex-row justify-between items-end mb-4 px-1">
+            <View>
+              <View className="flex-row items-center">
+                <TouchableOpacity
+                  onPress={() => changeDate(-1)}
+                  className="pr-2"
+                >
+                  <ChevronLeft size={16} color={Colors.textLight} />
+                </TouchableOpacity>
+                <Text className="text-gray-500 min-w-[120px] text-center">
+                  {activeTab === "daily"
+                    ? selectedDate.toLocaleDateString("es-ES", {
+                        day: "numeric",
+                        month: "long",
+                      })
+                    : selectedDate.toLocaleDateString("es-ES", {
+                        month: "long",
+                        year: "numeric",
+                      })}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => changeDate(1)}
+                  className="pl-2"
+                >
+                  <ChevronRight size={16} color={Colors.textLight} />
+                </TouchableOpacity>
+              </View>
             </View>
+            <TouchableOpacity
+              className="bg-gray-100 p-2 rounded-full"
+              onPress={() => setShowPicker(true)}
+            >
+              <Calendar size={20} color={Colors.primary} />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            className="bg-gray-100 p-2 rounded-full"
-            onPress={() => setShowPicker(true)}
-          >
-            <Calendar size={20} color={Colors.primary} />
-          </TouchableOpacity>
-        </View>
 
-        {showPicker && (
-          <DateTimePicker
-            value={selectedDate}
-            mode="date"
-            display={Platform.OS === "ios" ? "inline" : "default"}
-            onChange={handleDateChange}
-            maximumDate={new Date()}
-          />
-        )}
+          {showPicker && (
+            <DateTimePicker
+              value={selectedDate}
+              mode="date"
+              display={Platform.OS === "ios" ? "inline" : "default"}
+              onChange={handleDateChange}
+              maximumDate={new Date()}
+            />
+          )}
 
-        <View className="bg-gray-100 p-1 rounded-2xl flex-row">
-          <TabButton type="daily" label="Diario" />
-          <TabButton type="monthly" label="Mensual" />
-        </View>
+          <View className="bg-gray-100 p-1 rounded-2xl flex-row">
+            <TabButton type="daily" label="Diario" />
+            <TabButton type="monthly" label="Mensual" />
+          </View>
+        </SafeAreaView>
       </View>
 
       <ScrollView
@@ -456,3 +466,11 @@ export default function ReportsScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    flexDirection: "column",
+  },
+});
