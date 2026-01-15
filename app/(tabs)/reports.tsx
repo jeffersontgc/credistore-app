@@ -16,10 +16,8 @@ import {
   GetDailyReportQueryVariables,
   GetMonthlyReportQuery,
   GetMonthlyReportQueryVariables,
-  DailyReport,
 } from "@/types/graphql";
 import {
-  DollarSign,
   CreditCard,
   ShoppingBag,
   BarChart2,
@@ -136,7 +134,6 @@ export default function ReportsScreen() {
       <View className="bg-white px-4 pt-4 pb-2 shadow-sm">
         <View className="flex-row justify-between items-end mb-4 px-1">
           <View>
-            <Text className="text-2xl font-bold text-gray-800">Reportes</Text>
             <View className="flex-row items-center">
               <TouchableOpacity onPress={() => changeDate(-1)} className="pr-2">
                 <ChevronLeft size={16} color={Colors.textLight} />
