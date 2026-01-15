@@ -33,7 +33,7 @@ export default function DashboardScreen() {
 
   const ActionCard = ({ title, icon: Icon, color, route }: any) => (
     <TouchableOpacity
-      className={`flex-1 ${color} p-4 rounded-xl m-1 h-32 justify-center items-center shadow-sm`}
+      className={`flex-1 ${color} p-4 rounded-xl gap-2 h-32 justify-center items-center shadow-sm`}
       onPress={() => router.push(route)}
     >
       <Icon color="white" size={32} />
@@ -67,7 +67,7 @@ export default function DashboardScreen() {
         <Text className="text-xl font-bold text-gray-800 mb-3">
           Acciones Rápidas
         </Text>
-        <View className="flex-row">
+        <View className="flex-row gap-2 mb-2">
           <ActionCard
             title="Nueva Venta"
             icon={Scan}
@@ -75,13 +75,13 @@ export default function DashboardScreen() {
             route="/(tabs)/scanner"
           />
           <ActionCard
-            title="Nuevo Fiado"
+            title="Fiadores"
             icon={CreditCard}
             color="bg-orange-500"
             route="/(tabs)/debts"
           />
         </View>
-        <View className="flex-row">
+        <View className="flex-row gap-2">
           <ActionCard
             title="Productos"
             icon={Plus}

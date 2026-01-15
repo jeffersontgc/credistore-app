@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useToastStore } from "@/store/useToastStore";
+import useKeyboard from "@/hooks/useKeyboard";
 import {
   View,
   Text,
@@ -11,7 +12,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  StyleSheet,
+  Dimensions,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { useStore, User } from "@/store/useStore";
@@ -105,6 +106,8 @@ export default function UsersScreen() {
     </View>
   );
 
+  const isKeyboardVisible = useKeyboard();
+
   return (
     <View className="flex-1 bg-white">
       <StatusBar style="light" />
@@ -151,7 +154,6 @@ export default function UsersScreen() {
         >
           <Plus color="white" size={28} />
         </TouchableOpacity>
-
         {/* CREATE USER MODAL */}
         <Modal
           animationType="slide"
@@ -161,27 +163,43 @@ export default function UsersScreen() {
         >
           <View className="flex-1 justify-end bg-black/50">
             <KeyboardAvoidingView
-              behavior={Platform.OS === "ios" ? "padding" : "height"}
-              className="bg-white rounded-t-3xl h-[70%]"
+              behavior={Platform.OS === "ios" ? "padding" : undefined}
+              className="bg-white rounded-t-[40px]"
+              style={{
+                height:
+                  Platform.OS === "android" && isKeyboardVisible
+                    ? "100%"
+                    : Dimensions.get("window").height * 0.7,
+              }}
             >
-              <View className="p-6 border-b border-gray-100 flex-row justify-between items-center">
-                <Text className="text-2xl font-bold text-gray-800">
-                  Nuevo Cliente
-                </Text>
-                <TouchableOpacity onPress={() => setModalVisible(false)}>
-                  <X size={24} color="gray" />
+              <View className="p-8 pb-6 border-b border-gray-100 flex-row justify-between items-center bg-white rounded-t-[40px]">
+                <View>
+                  <Text className="text-3xl font-black text-indigo-950">
+                    Nuevo Cliente
+                  </Text>
+                  <Text className="text-gray-400 font-bold text-sm">
+                    Registrar un nuevo cliente
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setModalVisible(false)}
+                  className="bg-gray-100 p-3 rounded-full hover:bg-gray-200"
+                >
+                  <X size={24} color="#1e1b4b" strokeWidth={2.5} />
                 </TouchableOpacity>
               </View>
 
-              <ScrollView className="p-6">
-                <Text className="text-gray-600 mb-2 font-semibold">Nombre</Text>
+              <ScrollView className="p-8" showsVerticalScrollIndicator={false}>
+                <Text className="text-indigo-950 mb-2 font-bold text-base">
+                  Nombre
+                </Text>
                 <Controller
                   control={control}
                   rules={{ required: "El nombre es obligatorio" }}
                   name="firstname"
                   render={({ field: { onChange, onBlur, value } }) => (
                     <TextInput
-                      className={`bg-gray-50 p-4 rounded-xl mb-1 text-gray-800 border ${
+                      className={`bg-gray-50 p-3.5 rounded-2xl mb-4 text-indigo-950 font-bold text-base border ${
                         errors.firstname ? "border-red-500" : "border-gray-100"
                       }`}
                       placeholder="Ej: Juan"
@@ -192,7 +210,7 @@ export default function UsersScreen() {
                   )}
                 />
 
-                <Text className="text-gray-600 mt-4 mb-2 font-semibold">
+                <Text className="text-indigo-950 mb-2 font-bold text-base">
                   Apellido
                 </Text>
                 <Controller
@@ -201,7 +219,7 @@ export default function UsersScreen() {
                   name="lastname"
                   render={({ field: { onChange, onBlur, value } }) => (
                     <TextInput
-                      className={`bg-gray-50 p-4 rounded-xl mb-1 text-gray-800 border ${
+                      className={`bg-gray-50 p-3.5 rounded-2xl mb-4 text-indigo-950 font-bold text-base border ${
                         errors.lastname ? "border-red-500" : "border-gray-100"
                       }`}
                       placeholder="Ej: Pérez"
@@ -212,7 +230,7 @@ export default function UsersScreen() {
                   )}
                 />
 
-                <Text className="text-gray-600 mt-4 mb-2 font-semibold">
+                <Text className="text-indigo-950 mb-2 font-bold text-base">
                   Teléfono
                 </Text>
                 <Controller
@@ -221,7 +239,7 @@ export default function UsersScreen() {
                   name="phone"
                   render={({ field: { onChange, onBlur, value } }) => (
                     <TextInput
-                      className={`bg-gray-50 p-4 rounded-xl mb-1 text-gray-800 border ${
+                      className={`bg-gray-50 p-3.5 rounded-2xl mb-4 text-indigo-950 font-bold text-base border ${
                         errors.phone ? "border-red-500" : "border-gray-100"
                       }`}
                       placeholder="Ej: 8888-8888"
@@ -235,11 +253,11 @@ export default function UsersScreen() {
 
                 <TouchableOpacity
                   onPress={handleSubmit(onSubmit)}
-                  className="bg-indigo-600 p-4 rounded-xl flex-row justify-center items-center mt-10 mb-10 shadow-lg shadow-indigo-200"
+                  className="bg-indigo-600 p-4 rounded-2xl flex-row justify-center items-center mt-6 mb-4 shadow-lg shadow-indigo-200 active:bg-indigo-700"
                 >
-                  <Check color="white" size={20} />
-                  <Text className="text-white font-bold text-lg ml-2">
-                    Guardar Cliente
+                  <Check color="white" size={22} strokeWidth={3} />
+                  <Text className="text-white font-black text-lg ml-3 uppercase tracking-wider">
+                    Guardar
                   </Text>
                 </TouchableOpacity>
               </ScrollView>

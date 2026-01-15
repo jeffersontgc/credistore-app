@@ -6,18 +6,16 @@ import {
   TextInput,
   TouchableOpacity,
   Modal,
+  Alert,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
-  Alert,
   ActivityIndicator,
+  Dimensions,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   CameraView,
   useCameraPermissions,
@@ -33,12 +31,14 @@ import {
   Camera,
   Pencil,
   Package,
+  Trash2,
 } from "lucide-react-native";
 import { Colors } from "@/constants/Colors";
 import useDebounce from "@/hooks/useDebounce";
 import { useForm, Controller } from "react-hook-form";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { LinearGradient } from "expo-linear-gradient";
+import useKeyboard from "@/hooks/useKeyboard";
 
 import { useToastStore } from "@/store/useToastStore";
 
@@ -63,7 +63,12 @@ export default function ProductsScreen() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   const searchDebounce = useDebounce(search, 300);
-  const { products: allProducts, addProduct, updateProduct } = useStore();
+  const {
+    products: allProducts,
+    addProduct,
+    updateProduct,
+    deleteProduct,
+  } = useStore();
 
   const products = allProducts
     .filter(
@@ -116,6 +121,24 @@ export default function ProductsScreen() {
     setModalVisible(false);
     setEditingProduct(null);
     reset();
+  };
+
+  const handleDelete = (product: Product) => {
+    Alert.alert(
+      "Eliminar Producto",
+      `¿Estás seguro de que deseas eliminar "${product.name}"?`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: () => {
+            deleteProduct(product.uuid);
+            showToast("success", "Éxito", "Producto eliminado correctamente");
+          },
+        },
+      ]
+    );
   };
 
   const onSubmit = (data: CreateProductForm) => {
@@ -235,13 +258,23 @@ export default function ProductsScreen() {
               C$ {item.price}
             </Text>
           </LinearGradient>
-          <View className="bg-gray-50 p-2 rounded-full border border-gray-100">
-            <Pencil size={16} color="#9ca3af" />
+          <View className="flex-row items-center gap-2">
+            <View className="bg-gray-50 p-2 rounded-full border border-gray-100">
+              <Pencil size={16} color="#9ca3af" />
+            </View>
+            <TouchableOpacity
+              onPress={() => handleDelete(item)}
+              className="bg-red-50 p-2 rounded-full border border-red-100"
+            >
+              <Trash2 size={16} color={Colors.danger} />
+            </TouchableOpacity>
           </View>
         </View>
       </View>
     </TouchableOpacity>
   );
+
+  const isKeyboardVisible = useKeyboard();
 
   return (
     <View style={styles.container}>
@@ -305,8 +338,14 @@ export default function ProductsScreen() {
         <Modal visible={modalVisible} animationType="slide" transparent>
           <View className="flex-1 justify-end bg-black/60">
             <KeyboardAvoidingView
-              behavior={Platform.OS === "ios" ? "padding" : "height"}
-              className="bg-white rounded-t-[40px] h-[92%]"
+              behavior={Platform.OS === "ios" ? "padding" : undefined}
+              className="bg-white rounded-t-[40px]"
+              style={{
+                height:
+                  Platform.OS === "android" && isKeyboardVisible
+                    ? "100%"
+                    : Dimensions.get("window").height * 0.8,
+              }}
             >
               <View className="p-8 pb-6 border-b border-gray-100 flex-row justify-between items-center bg-white rounded-t-[40px]">
                 <View>
@@ -338,7 +377,7 @@ export default function ProductsScreen() {
                   name="name"
                   render={({ field: { onChange, onBlur, value } }) => (
                     <TextInput
-                      className={`bg-gray-50 p-5 rounded-2xl mb-6 text-indigo-950 font-bold text-lg border ${
+                      className={`bg-gray-50 p-3.5 rounded-2xl mb-4 text-indigo-950 font-bold text-base border ${
                         errors.name ? "border-red-500" : "border-gray-100"
                       }`}
                       placeholder="Ej: Coca Cola 3L"
@@ -360,7 +399,7 @@ export default function ProductsScreen() {
                     name="barcode"
                     render={({ field: { onChange, onBlur, value } }) => (
                       <TextInput
-                        className="flex-1 bg-gray-50 p-5 rounded-l-2xl text-indigo-950 font-bold text-lg border border-gray-100"
+                        className="flex-1 bg-gray-50 p-3.5 rounded-l-2xl text-indigo-950 font-bold text-base border border-gray-100"
                         placeholder="Escanear..."
                         placeholderTextColor="#cbd5e1"
                         onBlur={onBlur}
@@ -371,7 +410,7 @@ export default function ProductsScreen() {
                   />
                   <TouchableOpacity
                     onPress={openScanner}
-                    className="bg-indigo-600 p-5 rounded-r-2xl justify-center items-center px-6"
+                    className="bg-indigo-600 p-4 rounded-r-2xl justify-center items-center px-5"
                   >
                     <Camera color="white" size={24} strokeWidth={2.5} />
                   </TouchableOpacity>
@@ -388,7 +427,7 @@ export default function ProductsScreen() {
                       name="price"
                       render={({ field: { onChange, onBlur, value } }) => (
                         <TextInput
-                          className="bg-gray-50 p-5 rounded-2xl text-indigo-950 font-bold text-lg border border-gray-100"
+                          className="bg-gray-50 p-3.5 rounded-2xl text-indigo-950 font-bold text-base border border-gray-100"
                           placeholder="0"
                           placeholderTextColor="#cbd5e1"
                           keyboardType="numeric"
@@ -409,7 +448,7 @@ export default function ProductsScreen() {
                       name="cost_price"
                       render={({ field: { onChange, onBlur, value } }) => (
                         <TextInput
-                          className="bg-gray-50 p-5 rounded-2xl text-indigo-950 font-bold text-lg border border-gray-100"
+                          className="bg-gray-50 p-3.5 rounded-2xl text-indigo-950 font-bold text-base border border-gray-100"
                           placeholder="0"
                           placeholderTextColor="#cbd5e1"
                           keyboardType="numeric"
@@ -433,7 +472,7 @@ export default function ProductsScreen() {
                       name="stock"
                       render={({ field: { onChange, onBlur, value } }) => (
                         <TextInput
-                          className="bg-gray-50 p-5 rounded-2xl text-indigo-950 font-bold text-lg border border-gray-100"
+                          className="bg-gray-50 p-3.5 rounded-2xl text-indigo-950 font-bold text-base border border-gray-100"
                           placeholder="0"
                           placeholderTextColor="#cbd5e1"
                           keyboardType="numeric"
@@ -454,7 +493,7 @@ export default function ProductsScreen() {
                       name="min_stock"
                       render={({ field: { onChange, onBlur, value } }) => (
                         <TextInput
-                          className="bg-gray-50 p-5 rounded-2xl text-indigo-950 font-bold text-lg border border-gray-100"
+                          className="bg-gray-50 p-3.5 rounded-2xl text-indigo-950 font-bold text-base border border-gray-100"
                           placeholder="5"
                           placeholderTextColor="#cbd5e1"
                           keyboardType="numeric"
@@ -470,7 +509,7 @@ export default function ProductsScreen() {
                 <TouchableOpacity
                   onPress={handleSubmit(onSubmit)}
                   disabled={isSubmitting}
-                  className="bg-indigo-600 p-5 rounded-2xl flex-row justify-center items-center shadow-lg shadow-indigo-200 active:bg-indigo-700"
+                  className="bg-indigo-600 p-4 rounded-2xl flex-row justify-center items-center shadow-lg shadow-indigo-200 active:bg-indigo-700"
                 >
                   {isSubmitting ? (
                     <ActivityIndicator color="white" />
@@ -483,7 +522,6 @@ export default function ProductsScreen() {
                     </>
                   )}
                 </TouchableOpacity>
-                <View className="h-32" />
               </ScrollView>
             </KeyboardAvoidingView>
           </View>

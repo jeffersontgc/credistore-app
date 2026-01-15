@@ -123,10 +123,7 @@ export function ManualProductSelector({
       )}
 
       {selectedProduct && !isListVisible && (
-        <LinearGradient
-          colors={["#f8fafc", "#f1f5f9"]}
-          className="mt-4 p-6 rounded-[35px] border border-indigo-100 shadow-sm border-b-4 border-b-indigo-200"
-        >
+        <LinearGradient colors={["#f8fafc", "#f1f5f9"]} className="mt-4 p-6">
           <View className="flex-row justify-between items-start mb-6">
             <View className="flex-1 mr-4">
               <Text className="text-indigo-950 font-black text-xl leading-tight">

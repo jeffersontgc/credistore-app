@@ -9,7 +9,6 @@ import {
   Users,
 } from "lucide-react-native";
 import { Colors } from "@/constants/Colors";
-import { LinearGradient } from "expo-linear-gradient";
 
 export default function TabLayout() {
   return (
