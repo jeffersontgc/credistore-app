@@ -150,7 +150,7 @@ export default function ProductsScreen() {
         <Search color={Colors.textLight} size={20} />
         <TextInput
           className="flex-1 ml-2 text-base text-gray-800"
-          placeholder="Buscar productos... (V2)"
+          placeholder="Buscar productos..."
           value={search}
           onChangeText={(text) => {
             setSearch(text);
