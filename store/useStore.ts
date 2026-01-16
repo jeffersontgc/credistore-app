@@ -24,6 +24,7 @@ export interface Product {
   stock: number;
   min_stock: number;
   type: ProductType;
+  weight_lb?: number; // Peso en libras/litros para granos básicos
   barcodes: Barcode[];
   createdAt: string;
 }

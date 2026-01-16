@@ -50,6 +50,7 @@ interface CreateProductForm {
   stock: string;
   min_stock: string;
   type: ProductType;
+  weight_lb?: string; // Peso en libras/litros
 }
 
 export default function ProductsScreen() {
@@ -61,6 +62,7 @@ export default function ProductsScreen() {
   const [scannerVisible, setScannerVisible] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isGranoBasico, setIsGranoBasico] = useState(false);
 
   const searchDebounce = useDebounce(search, 300);
   const {
@@ -94,6 +96,7 @@ export default function ProductsScreen() {
       stock: "0",
       min_stock: "5",
       type: ProductType.GRANOS_BASICOS,
+      weight_lb: "",
     },
   });
 
@@ -107,8 +110,14 @@ export default function ProductsScreen() {
       setValue("stock", String(editingProduct.stock));
       setValue("min_stock", String(editingProduct.min_stock));
       setValue("type", editingProduct.type);
+      setValue(
+        "weight_lb",
+        editingProduct.weight_lb ? String(editingProduct.weight_lb) : ""
+      );
+      setIsGranoBasico(editingProduct.type === ProductType.GRANOS_BASICOS);
     } else {
       reset();
+      setIsGranoBasico(false);
     }
   }, [editingProduct, setValue, reset]);
 
@@ -154,6 +163,7 @@ export default function ProductsScreen() {
             stock: Number(data.stock),
             min_stock: Number(data.min_stock),
             type: data.type,
+            weight_lb: data.weight_lb ? Number(data.weight_lb) : undefined,
           });
           showToast("success", "Éxito", "Producto actualizado correctamente");
         } else {
@@ -173,6 +183,7 @@ export default function ProductsScreen() {
           stock: Number(data.stock),
           min_stock: Number(data.min_stock),
           type: data.type,
+          weight_lb: data.weight_lb ? Number(data.weight_lb) : undefined,
         });
         showToast("success", "Éxito", "Producto creado correctamente");
       }
@@ -415,6 +426,59 @@ export default function ProductsScreen() {
                     <Camera color="white" size={24} strokeWidth={2.5} />
                   </TouchableOpacity>
                 </View>
+
+                {/* CHECKBOX: ¿Es Grano Básico? */}
+                <TouchableOpacity
+                  onPress={() => {
+                    const newValue = !isGranoBasico;
+                    setIsGranoBasico(newValue);
+                    setValue(
+                      "type",
+                      newValue ? ProductType.GRANOS_BASICOS : ProductType.SNACKS
+                    );
+                    if (!newValue) setValue("weight_lb", "");
+                  }}
+                  className="flex-row items-center mb-6 bg-gray-50 p-4 rounded-2xl border border-gray-100"
+                >
+                  <View
+                    className={`w-6 h-6 rounded-md border-2 mr-3 items-center justify-center ${
+                      isGranoBasico
+                        ? "bg-indigo-600 border-indigo-600"
+                        : "border-gray-300"
+                    }`}
+                  >
+                    {isGranoBasico && (
+                      <Check size={16} color="white" strokeWidth={3} />
+                    )}
+                  </View>
+                  <Text className="text-indigo-950 font-bold text-base">
+                    ¿Es Grano Básico?
+                  </Text>
+                </TouchableOpacity>
+
+                {/* CONDITIONAL: Peso en Libras/Litros */}
+                {isGranoBasico && (
+                  <View className="mb-6">
+                    <Text className="text-indigo-950 mb-2 font-bold text-base">
+                      Peso (Libras/Litros)
+                    </Text>
+                    <Controller
+                      control={control}
+                      name="weight_lb"
+                      render={({ field: { onChange, onBlur, value } }) => (
+                        <TextInput
+                          className="bg-gray-50 p-3.5 rounded-2xl text-indigo-950 font-bold text-base border border-gray-100"
+                          placeholder="Ej: 5 (libras o litros)"
+                          placeholderTextColor="#cbd5e1"
+                          keyboardType="numeric"
+                          onBlur={onBlur}
+                          onChangeText={onChange}
+                          value={value}
+                        />
+                      )}
+                    />
+                  </View>
+                )}
 
                 <View className="flex-row space-x-4 gap-x-4 mb-6">
                   <View className="flex-1">
