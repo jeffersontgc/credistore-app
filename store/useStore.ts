@@ -68,11 +68,27 @@ export interface Debt {
   updatedAt: string;
 }
 
+export interface CashClosure {
+  uuid: string;
+  date: string; // Fecha del cierre (YYYY-MM-DD)
+  closedAt: string; // Timestamp del cierre
+  cashSales: Sale[]; // Ventas de contado del día
+  creditSales: Debt[]; // Ventas fiadas del día
+  totalCash: number;
+  totalCredit: number;
+  totalSales: number;
+}
+
 interface AppState {
   products: Product[];
   users: User[]; // Customers
-  sales: Sale[];
-  debts: Debt[];
+  sales: Sale[]; // Legacy/Historical sales
+  debts: Debt[]; // Legacy/Historical debts
+
+  // Cash Closure System
+  currentDaySales: Sale[]; // Ventas de contado del día actual
+  currentDayDebts: Debt[]; // Ventas fiadas del día actual
+  cashClosures: CashClosure[]; // Historial de cierres
 
   // Actions - Products
   addProduct: (
@@ -98,6 +114,9 @@ interface AppState {
   // Actions - Debts
   updateDebtStatus: (uuid: string, status: DebtStatus) => void;
 
+  // Actions - Cash Closure
+  closeCashRegister: () => void;
+
   // Actions - Data Management
   importData: (data: Partial<AppState>) => void;
 
@@ -122,8 +141,11 @@ export const useStore = create<AppState>()(
     (set, get) => ({
       products: [],
       users: [],
-      sales: [],
-      debts: [],
+      sales: [], // Legacy
+      debts: [], // Legacy
+      currentDaySales: [],
+      currentDayDebts: [],
+      cashClosures: [],
 
       addProduct: (input) => {
         const newProduct: Product = {
@@ -202,7 +224,7 @@ export const useStore = create<AppState>()(
               }
             });
 
-            draft.sales.push({
+            draft.currentDaySales.push({
               uuid: generateUUID(),
               totalAmount,
               items: saleItems,
@@ -239,7 +261,7 @@ export const useStore = create<AppState>()(
               }
             });
 
-            draft.debts.push({
+            draft.currentDayDebts.push({
               uuid: generateUUID(),
               user: customer,
               amount: totalAmount,
@@ -261,6 +283,39 @@ export const useStore = create<AppState>()(
               state.debts[index].status = status;
               state.debts[index].updatedAt = new Date().toISOString();
             }
+          })
+        );
+      },
+
+      closeCashRegister: () => {
+        const state = get();
+        const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+
+        const totalCash = state.currentDaySales.reduce(
+          (sum, sale) => sum + sale.totalAmount,
+          0
+        );
+        const totalCredit = state.currentDayDebts.reduce(
+          (sum, debt) => sum + debt.amount,
+          0
+        );
+
+        const closure: CashClosure = {
+          uuid: generateUUID(),
+          date: today,
+          closedAt: new Date().toISOString(),
+          cashSales: [...state.currentDaySales],
+          creditSales: [...state.currentDayDebts],
+          totalCash,
+          totalCredit,
+          totalSales: totalCash + totalCredit,
+        };
+
+        set(
+          produce((draft: AppState) => {
+            draft.cashClosures.push(closure);
+            draft.currentDaySales = [];
+            draft.currentDayDebts = [];
           })
         );
       },

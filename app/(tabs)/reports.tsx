@@ -8,9 +8,12 @@ import {
   RefreshControl,
   StyleSheet,
   Platform,
+  Alert,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
 import { useStore, DebtStatus } from "@/store/useStore";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import {
@@ -23,6 +26,7 @@ import {
   Package,
   ChevronLeft,
   ChevronRight,
+  FileDown,
 } from "lucide-react-native";
 import { Colors } from "@/constants/Colors";
 import { LinearGradient } from "expo-linear-gradient";
@@ -34,7 +38,14 @@ export default function ReportsScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
 
-  const { sales, debts, products } = useStore();
+  const {
+    sales,
+    debts,
+    products,
+    cashClosures,
+    currentDaySales,
+    currentDayDebts,
+  } = useStore();
 
   const report = useMemo(() => {
     const isSameDay = (date1: Date, date2: Date) =>
@@ -46,19 +57,42 @@ export default function ReportsScreen() {
       date1.getFullYear() === date2.getFullYear() &&
       date1.getMonth() === date2.getMonth();
 
-    const filteredSales = sales.filter((s) => {
-      const d = new Date(s.createdAt);
-      return activeTab === "daily"
-        ? isSameDay(d, selectedDate)
-        : isSameMonth(d, selectedDate);
-    });
+    let filteredSales: typeof currentDaySales = [];
+    let filteredDebts: typeof currentDayDebts = [];
 
-    const filteredDebts = debts.filter((d) => {
-      const dt = new Date(d.createdAt);
-      return activeTab === "daily"
-        ? isSameDay(dt, selectedDate)
-        : isSameMonth(dt, selectedDate);
-    });
+    if (activeTab === "daily") {
+      // For daily view: show current day sales if selected date is today
+      const isToday = isSameDay(selectedDate, new Date());
+      if (isToday) {
+        filteredSales = [...currentDaySales];
+        filteredDebts = [...currentDayDebts];
+      } else {
+        // Show sales from closures for past days
+        const dayClosures = cashClosures.filter((c) =>
+          isSameDay(new Date(c.date), selectedDate)
+        );
+        dayClosures.forEach((closure) => {
+          filteredSales.push(...closure.cashSales);
+          filteredDebts.push(...closure.creditSales);
+        });
+      }
+    } else {
+      // For monthly view: combine current day + all closures of the month
+      const isCurrentMonth = isSameMonth(selectedDate, new Date());
+
+      if (isCurrentMonth) {
+        filteredSales = [...currentDaySales];
+        filteredDebts = [...currentDayDebts];
+      }
+
+      const monthClosures = cashClosures.filter((c) =>
+        isSameMonth(new Date(c.date), selectedDate)
+      );
+      monthClosures.forEach((closure) => {
+        filteredSales.push(...closure.cashSales);
+        filteredDebts.push(...closure.creditSales);
+      });
+    }
 
     if (filteredSales.length === 0 && filteredDebts.length === 0) return null;
 
@@ -138,6 +172,198 @@ export default function ReportsScreen() {
   const handleDateChange = (_: any, date?: Date) => {
     setShowPicker(Platform.OS === "ios");
     if (date) setSelectedDate(date);
+  };
+
+  const generatePDF = async () => {
+    const isSameDay = (date1: Date, date2: Date) =>
+      date1.getFullYear() === date2.getFullYear() &&
+      date1.getMonth() === date2.getMonth() &&
+      date1.getDate() === date2.getDate();
+
+    const isSameMonth = (date1: Date, date2: Date) =>
+      date1.getFullYear() === date2.getFullYear() &&
+      date1.getMonth() === date2.getMonth();
+
+    let salesData: typeof currentDaySales = [];
+    let debtsData: typeof currentDayDebts = [];
+
+    if (activeTab === "daily") {
+      const isToday = isSameDay(selectedDate, new Date());
+      if (isToday) {
+        salesData = [...currentDaySales];
+        debtsData = [...currentDayDebts];
+      } else {
+        const dayClosures = cashClosures.filter((c) =>
+          isSameDay(new Date(c.date), selectedDate)
+        );
+        dayClosures.forEach((closure) => {
+          salesData.push(...closure.cashSales);
+          debtsData.push(...closure.creditSales);
+        });
+      }
+    } else {
+      const isCurrentMonth = isSameMonth(selectedDate, new Date());
+      if (isCurrentMonth) {
+        salesData = [...currentDaySales];
+        debtsData = [...currentDayDebts];
+      }
+
+      const monthClosures = cashClosures.filter((c) =>
+        isSameMonth(new Date(c.date), selectedDate)
+      );
+      monthClosures.forEach((closure) => {
+        salesData.push(...closure.cashSales);
+        debtsData.push(...closure.creditSales);
+      });
+    }
+
+    if (salesData.length === 0 && debtsData.length === 0) {
+      Alert.alert(
+        "Sin Datos",
+        `No hay ventas registradas para este ${
+          activeTab === "daily" ? "día" : "mes"
+        }.`
+      );
+      return;
+    }
+
+    const periodName =
+      activeTab === "daily"
+        ? selectedDate.toLocaleDateString("es-NI", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })
+        : selectedDate.toLocaleDateString("es-NI", {
+            month: "long",
+            year: "numeric",
+          });
+
+    let salesRows = "";
+    let totalCash = 0;
+    let totalCredit = 0;
+
+    // Cash Sales
+    salesData.forEach((sale) => {
+      const saleDate = new Date(sale.createdAt).toLocaleDateString("es-NI");
+      sale.items.forEach((item) => {
+        salesRows += `
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${saleDate}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${
+              item.name
+            }</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${
+              item.quantity
+            }</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">Contado</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">-</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">C$ ${(
+              item.price * item.quantity
+            ).toFixed(2)}</td>
+          </tr>
+        `;
+      });
+      totalCash += sale.totalAmount;
+    });
+
+    // Credit Sales
+    debtsData.forEach((debt) => {
+      const debtDate = new Date(debt.createdAt).toLocaleDateString("es-NI");
+      debt.products.forEach((item) => {
+        salesRows += `
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${debtDate}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${
+              item.name
+            }</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${
+              item.quantity
+            }</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">Fiado</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${
+              debt.user.firstname
+            } ${debt.user.lastname}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: right;">C$ ${(
+              item.price * item.quantity
+            ).toFixed(2)}</td>
+          </tr>
+        `;
+      });
+      totalCredit += debt.amount;
+    });
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Reporte de Ventas - ${periodName}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            h1 { color: #4F46E5; text-align: center; }
+            h2 { color: #6B7280; font-size: 16px; text-align: center; margin-bottom: 30px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th { background-color: #4F46E5; color: white; padding: 12px; text-align: left; }
+            .summary { background-color: #F3F4F6; padding: 15px; border-radius: 8px; margin-top: 20px; }
+            .summary-item { display: flex; justify-content: space-between; margin: 8px 0; }
+            .total { font-size: 18px; font-weight: bold; color: #4F46E5; }
+          </style>
+        </head>
+        <body>
+          <h1>CrediStore - Reporte de Ventas</h1>
+          <h2>${periodName}</h2>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Producto</th>
+                <th style="text-align: center;">Cantidad</th>
+                <th style="text-align: center;">Tipo</th>
+                <th style="text-align: center;">Cliente</th>
+                <th style="text-align: right;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${salesRows}
+            </tbody>
+          </table>
+
+          <div class="summary">
+            <div class="summary-item">
+              <span>Total Contado:</span>
+              <span>C$ ${totalCash.toFixed(2)}</span>
+            </div>
+            <div class="summary-item">
+              <span>Total Fiado:</span>
+              <span>C$ ${totalCredit.toFixed(2)}</span>
+            </div>
+            <div class="summary-item total">
+              <span>TOTAL:</span>
+              <span>C$ ${(totalCash + totalCredit).toFixed(2)}</span>
+            </div>
+          </div>
+
+          <p style="text-align: center; color: #9CA3AF; font-size: 12px; margin-top: 30px;">
+            Generado el ${new Date().toLocaleDateString(
+              "es-NI"
+            )} a las ${new Date().toLocaleTimeString("es-NI")}
+          </p>
+        </body>
+      </html>
+    `;
+
+    try {
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri, {
+        mimeType: "application/pdf",
+        dialogTitle: `Reporte ${periodName}`,
+        UTI: "com.adobe.pdf",
+      });
+    } catch (error) {
+      Alert.alert("Error", "No se pudo generar el PDF.");
+    }
   };
 
   const StatCard = ({
@@ -242,6 +468,16 @@ export default function ReportsScreen() {
             <TabButton type="daily" label="Diario" />
             <TabButton type="monthly" label="Mensual" />
           </View>
+
+          <TouchableOpacity
+            onPress={generatePDF}
+            className="bg-indigo-600 py-3 px-4 rounded-xl flex-row items-center justify-center mt-4 active:bg-indigo-700"
+          >
+            <FileDown size={20} color="white" />
+            <Text className="text-white font-bold ml-2">
+              Descargar PDF {activeTab === "daily" ? "del Día" : "del Mes"}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <ScrollView

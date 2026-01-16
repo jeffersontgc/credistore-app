@@ -8,11 +8,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 import * as SplashScreen from "expo-splash-screen";
-import { useFonts } from "expo-font";
-// import Toast from "react-native-toast-message";
 import { Toast } from "@/components/Toast";
-
-import { AIFloatingButton } from "@/components/ai/AIFloatingButton";
 
 import "../global.css";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -24,8 +20,6 @@ export const unstable_settings = {
   anchor: "(tabs)",
 };
 
-import { useNetworkStatus } from "@/hooks/useNetworkStatus";
-
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
@@ -34,8 +28,6 @@ export default function RootLayout() {
   //   SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   // });
   const loaded = true; // Assuming "loaded" immediately if no assets to wait for
-
-  const { isConnected, isInternetReachable } = useNetworkStatus();
 
   useEffect(() => {
     if (loaded) {
@@ -47,9 +39,6 @@ export default function RootLayout() {
     return null;
   }
 
-  // User requirement: Only show if connected to internet (via hook)
-  const showAIButton = isConnected && isInternetReachable;
-
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <Stack>
@@ -60,7 +49,7 @@ export default function RootLayout() {
         />
       </Stack>
       <StatusBar style="auto" />
-      {showAIButton && <AIFloatingButton />}
+
       <Toast />
     </ThemeProvider>
   );

@@ -9,27 +9,23 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
-import { Scan, Plus, CreditCard, DollarSign } from "lucide-react-native";
+import { Scan, Plus, CreditCard, DollarSign, Lock } from "lucide-react-native";
 import { useStore } from "@/store/useStore";
 import { ScreenHeader } from "@/components/ScreenHeader";
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { sales, debts } = useStore();
+  const { currentDaySales, currentDayDebts } = useStore();
 
   const metrics = useMemo(() => {
-    const today = new Date().toISOString().split("T")[0];
-
-    const todaySales = sales
-      .filter((s) => s.createdAt.startsWith(today))
-      .reduce((acc, s) => acc + s.totalAmount, 0);
-
-    const todayCredits = debts
-      .filter((d) => d.createdAt.startsWith(today))
-      .reduce((acc, d) => acc + d.amount, 0);
+    const todaySales = currentDaySales.reduce(
+      (acc, s) => acc + s.totalAmount,
+      0
+    );
+    const todayCredits = currentDayDebts.reduce((acc, d) => acc + d.amount, 0);
 
     return { todaySales, todayCredits };
-  }, [sales, debts]);
+  }, [currentDaySales, currentDayDebts]);
 
   const ActionCard = ({ title, icon: Icon, color, route }: any) => (
     <TouchableOpacity
@@ -89,10 +85,10 @@ export default function DashboardScreen() {
             route="/(tabs)/products"
           />
           <ActionCard
-            title="Caja"
-            icon={DollarSign}
-            color="bg-green-600"
-            route="/(tabs)/reports"
+            title="Cierre de Caja"
+            icon={Lock}
+            color="bg-purple-600"
+            route="/cash-closure"
           />
         </View>
       </ScrollView>
