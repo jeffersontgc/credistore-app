@@ -20,6 +20,7 @@ import {
   Download,
   Database,
   Settings,
+  Trash2,
 } from "lucide-react-native";
 
 export default function SettingsScreen() {
@@ -121,6 +122,27 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleClearData = () => {
+    Alert.alert(
+      "⚠️ Restablecer Datos",
+      "Esta acción ELIMINARÁ todos los productos, clientes, ventas y deudas. Esta acción NO se puede deshacer.\n\n¿Estás seguro?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar Todo",
+          style: "destructive",
+          onPress: () => {
+            store.clearAllData();
+            Alert.alert(
+              "✓ Datos Eliminados",
+              "Todos los datos han sido restablecidos."
+            );
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-gray-100">
       <View className="p-6">
@@ -170,6 +192,33 @@ export default function SettingsScreen() {
             <Upload size={20} color={Colors.primary} />
             <Text className="text-indigo-600 font-bold ml-2 text-lg">
               Restaurar Datos
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Danger Zone Section */}
+        <View className="bg-white rounded-2xl p-6 shadow-sm mb-6">
+          <View className="flex-row items-center mb-6">
+            <Trash2 size={24} color={Colors.danger} />
+            <Text className="text-xl font-bold text-gray-900 ml-3">
+              Zona Peligrosa
+            </Text>
+          </View>
+
+          <Text className="text-gray-600 mb-6 leading-5">
+            Elimina todos los datos de la aplicación. Esta acción es permanente
+            y no se puede deshacer.
+          </Text>
+
+          {/* Clear Data Button */}
+          <TouchableOpacity
+            onPress={handleClearData}
+            disabled={loading}
+            className="flex-row items-center justify-center bg-red-600 py-4 px-6 rounded-xl active:bg-red-700"
+          >
+            <Trash2 size={20} color="white" />
+            <Text className="text-white font-bold ml-2 text-lg">
+              Restablecer Todos los Datos
             </Text>
           </TouchableOpacity>
         </View>
