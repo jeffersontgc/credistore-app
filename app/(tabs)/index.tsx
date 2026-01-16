@@ -78,7 +78,7 @@ export default function DashboardScreen() {
             title="Fiadores"
             icon={CreditCard}
             color="bg-orange-500"
-            route="/(tabs)/debts"
+            route="/debts"
           />
         </View>
         <View className="flex-row gap-2">

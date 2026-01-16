@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "credistore-app",
+    "name": "CrediStore",
     "slug": "credistore-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -42,9 +42,11 @@
           "image": "./assets/logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#4F46E5",
+          "backgroundColor": "#4338ca",
+          "backgroundImage": "./assets/images/splash-background.png",
           "dark": {
-            "backgroundColor": "#4338CA"
+            "backgroundColor": "#1e1b4b",
+            "backgroundImage": "./assets/images/splash-background.png"
           }
         }
       ],

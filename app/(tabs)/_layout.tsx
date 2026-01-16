@@ -62,6 +62,12 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <SettingsIcon color={color} size={24} />,
         }}
       />
+      <Tabs.Screen
+        name="debts"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
     </Tabs>
   );
 }
